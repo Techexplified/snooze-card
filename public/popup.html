@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pause Card</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1e1f26;
+        font-family: sans-serif;
+        padding: 16px;
+      }
+      .card {
+        background: #2d2f3a;
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      .emoji {
+        font-size: 2rem;
+      }
+      h2 {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+      p {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        text-align: center;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: none;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        background: #579dff;
+        color: white;
+      }
+      button:hover {
+        background: #4a8fe0;
+      }
+      button.resume {
+        background: #16a34a;
+      }
+      button.resume:hover {
+        background: #15803d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="emoji">⏸️</div>
+      <h2>Pause Card</h2>
+      <p id="msg">
+        Open a card and use the <strong>Pause Card</strong> button inside the
+        card to pause it.
+      </p>
+      <button id="btn" style="display: none"></button>
+    </div>
+    <script>
+      var t = TrelloPowerUp.iframe();
+      t.context().then(function (ctx) {
+        if (!ctx.card) return;
+        t.get("card", "shared", "paused").then(function (paused) {
+          var btn = document.getElementById("btn");
+          var msg = document.getElementById("msg");
+          msg.textContent = paused
+            ? "This card is currently paused. Click below to resume."
+            : "Pause this card to temporarily hide it from the board.";
+          btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
+          btn.className = paused ? "resume" : "";
+          btn.style.display = "block";
+          btn.onclick = function () {
+            t.set("card", "shared", "paused", !paused).then(function () {
+              t.closePopup();
+            });
+          };
+        });
+      });
+    </script>
+  </body>
+</html>

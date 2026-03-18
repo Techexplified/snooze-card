@@ -11,8 +11,8 @@ TrelloPowerUp.initialize({
         callback: function (t) {
           return t.popup({
             title: "Pause Card",
-            url: "/",
-            height: 230, // reduced to avoid scrollbars
+            url: "/popup.html",
+            height: 220,
           });
         },
       },
