@@ -73,19 +73,31 @@
     <script>
       var t = TrelloPowerUp.iframe();
       t.context().then(function (ctx) {
-        if (!ctx.card) return;
+        var btn = document.getElementById("btn");
+        var msg = document.getElementById("msg");
+
+        if (!ctx.card) {
+          msg.innerHTML =
+            "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
+          return;
+        }
+
         t.get("card", "shared", "paused").then(function (paused) {
-          var btn = document.getElementById("btn");
-          var msg = document.getElementById("msg");
           msg.textContent = paused
             ? "This card is currently paused. Click below to resume."
             : "Pause this card to temporarily hide it from the board.";
           btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
           btn.className = paused ? "resume" : "";
           btn.style.display = "block";
+
           btn.onclick = function () {
-            t.set("card", "shared", "paused", !paused).then(function () {
-              t.closePopup();
+            // Re-fetch current value to avoid stale closure
+            t.get("card", "shared", "paused").then(function (currentPaused) {
+              t.set("card", "shared", "paused", !currentPaused).then(
+                function () {
+                  t.closePopup();
+                },
+              );
             });
           };
         });
