@@ -7,21 +7,29 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!window.TrelloPowerUp) return;
+
     const trello = window.TrelloPowerUp.iframe();
     setT(trello);
 
-    trello.context().then((ctx) => {
-      if (ctx.card) {
-        setHasCard(true);
-        trello.get("card", "shared", "paused").then((val) => {
-          setPaused(!!val);
+    trello
+      .context()
+      .then((ctx) => {
+        if (ctx.card) {
+          setHasCard(true);
+          trello.get("card", "shared", "paused").then((val) => {
+            setPaused(!!val);
+            setLoading(false);
+          });
+        } else {
+          setHasCard(false);
           setLoading(false);
-        });
-      } else {
+        }
+      })
+      .catch(() => {
         setHasCard(false);
         setLoading(false);
-      }
-    });
+      });
   }, []);
 
   const handleToggle = async () => {
@@ -32,14 +40,16 @@ function App() {
     t.closePopup();
   };
 
-  if (loading) return null;
+  if (loading)
+    return (
+      <div className="flex items-center justify-center p-6">
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </div>
+    );
 
   return (
-    <div
-      className="flex items-center justify-center w-full bg-[#1e1f26]"
-      style={{ height: "100vh", overflow: "hidden" }}
-    >
-      <div className="bg-[#2d2f3a] rounded-xl w-full mx-3 p-5 text-white flex flex-col items-center gap-3">
+    <div className="p-4 bg-[#1e1f26]">
+      <div className="bg-[#2d2f3a] rounded-xl p-5 text-white flex flex-col items-center gap-3">
         <div className="text-3xl">⏸️</div>
         <h2 className="text-base font-bold text-white">Pause Card</h2>
 
