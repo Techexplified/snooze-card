@@ -2,10 +2,62 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pause Card - Connector</title>
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
-    <script src="/connector.js"></script>
   </head>
-  <body></body>
+  <body>
+    <script>
+      window.TrelloPowerUp.initialize({
+        "board-buttons": function (t) {
+          return [
+            {
+              text: "Pause Card",
+              icon: {
+                dark: "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle.svg",
+                light:
+                  "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle.svg",
+              },
+              callback: function (t) {
+                return t.popup({
+                  title: "Pause Card",
+                  url: "/popup.html",
+                  height: 220,
+                });
+              },
+            },
+          ];
+        },
+
+        "card-buttons": function (t) {
+          return t.get("card", "shared", "paused").then(function (paused) {
+            return [
+              {
+                icon: "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle.svg",
+                text: paused ? "Resume Card" : "Pause Card",
+                callback: function (t) {
+                  return t.popup({
+                    title: "Pause Card",
+                    url: "/popup.html",
+                    height: 220,
+                  });
+                },
+              },
+            ];
+          });
+        },
+
+        "card-badges": function (t) {
+          return t.get("card", "shared", "paused").then(function (paused) {
+            if (!paused) return [];
+            return [
+              {
+                icon: "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg",
+                text: "Paused",
+                color: "blue",
+              },
+            ];
+          });
+        },
+      });
+    </script>
+  </body>
 </html>
