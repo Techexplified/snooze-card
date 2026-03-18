@@ -2,105 +2,103 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pause Card</title>
     <script src="https://p.trellocdn.com/power-up.min.js"></script>
     <style>
-      body {
-        background: transparent; /* Allows Trello background to show through */
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        padding: 4px;
+      * {
         margin: 0;
-        overflow: hidden;
+        padding: 0;
+        box-sizing: border-box;
       }
-      .container {
+      body {
+        background: #1e1f26;
+        font-family: sans-serif;
+        padding: 16px;
+      }
+      .card {
+        background: #2d2f3a;
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
         display: flex;
+        flex-direction: column;
         align-items: center;
         gap: 12px;
-        padding: 8px;
-        background: #2d2f3a;
-        border-radius: 8px;
-        color: white;
       }
-      .info {
-        flex-grow: 1;
+      .emoji {
+        font-size: 2rem;
       }
       h2 {
-        font-size: 0.85rem;
-        margin: 0;
-        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
       }
       p {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         color: #9ca3af;
-        margin: 4px 0 0 0;
+        text-align: center;
       }
-
       button {
-        padding: 6px 12px;
-        border-radius: 5px;
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
         border: none;
         font-weight: 600;
-        font-size: 0.75rem;
+        font-size: 0.875rem;
         cursor: pointer;
         background: #579dff;
         color: white;
-        white-space: nowrap;
+      }
+      button:hover {
+        background: #4a8fe0;
       }
       button.resume {
         background: #16a34a;
       }
-
-      /* Dark mode/Standard Trello adjustments */
-      .is-board-button-popup {
-        background: #1e1f26;
-        padding: 16px;
-        height: 100vh;
+      button.resume:hover {
+        background: #15803d;
       }
     </style>
   </head>
   <body>
-    <div id="main-container" class="container">
-      <div class="info">
-        <h2 id="title">Pause Card</h2>
-        <p id="msg">Loading...</p>
-      </div>
+    <div class="card">
+      <div class="emoji">⏸️</div>
+      <h2>Pause Card</h2>
+      <p id="msg">
+        Open a card and use the <strong>Pause Card</strong> button inside the
+        card to pause it.
+      </p>
       <button id="btn" style="display: none"></button>
     </div>
-
     <script>
       var t = TrelloPowerUp.iframe();
-
       t.context().then(function (ctx) {
         var btn = document.getElementById("btn");
         var msg = document.getElementById("msg");
-        var container = document.getElementById("main-container");
 
-        // Check if we are in a popup from a board button
         if (!ctx.card) {
-          container.classList.add("is-board-button-popup");
-          msg.innerHTML = "Open a card to use this feature.";
+          msg.innerHTML =
+            "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
           return;
         }
 
         t.get("card", "shared", "paused").then(function (paused) {
           msg.textContent = paused
-            ? "This card is paused."
-            : "Pause this card to hide it.";
-          btn.textContent = paused ? "▶ Resume" : "⏸ Pause";
+            ? "This card is currently paused. Click below to resume."
+            : "Pause this card to temporarily hide it from the board.";
+          btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
           btn.className = paused ? "resume" : "";
           btn.style.display = "block";
 
           btn.onclick = function () {
-            t.get("card", "shared", "paused")
-              .then(function (currentPaused) {
-                return t.set("card", "shared", "paused", !currentPaused);
-              })
-              .then(function () {
-                // If it's a popup, close it. If it's a section, just refresh.
-                if (t.isPopup()) {
+            // Re-fetch current value to avoid stale closure
+            t.get("card", "shared", "paused").then(function (currentPaused) {
+              t.set("card", "shared", "paused", !currentPaused).then(
+                function () {
                   t.closePopup();
-                }
-              });
+                },
+              );
+            });
           };
         });
       });
