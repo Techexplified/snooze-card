@@ -26,8 +26,22 @@
         align-items: center;
         gap: 12px;
       }
-      .emoji {
-        font-size: 2rem;
+      .icon-wrap {
+        width: 52px;
+        height: 52px;
+        background: #579dff;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon-wrap img {
+        width: 28px;
+        height: 28px;
+        filter: brightness(0) invert(1);
+      }
+      .icon-wrap.resume {
+        background: #16a34a;
       }
       h2 {
         font-size: 1rem;
@@ -48,6 +62,7 @@
         cursor: pointer;
         background: #579dff;
         color: white;
+        transition: background 0.15s;
       }
       button:hover {
         background: #4a8fe0;
@@ -62,44 +77,69 @@
   </head>
   <body>
     <div class="card">
-      <div class="emoji">⏸️</div>
-      <h2>Pause Card</h2>
+      <div class="icon-wrap" id="iconWrap">
+        <img
+          id="iconImg"
+          src="https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg"
+          alt="pause"
+        />
+      </div>
+      <h2 id="title">Pause Card</h2>
       <p id="msg">
         Open a card and use the <strong>Pause Card</strong> button inside the
         card to pause it.
       </p>
       <button id="btn" style="display: none"></button>
     </div>
+
     <script>
       var t = TrelloPowerUp.iframe();
-      t.context().then(function (ctx) {
+
+      t.render(function () {
         var btn = document.getElementById("btn");
         var msg = document.getElementById("msg");
+        var title = document.getElementById("title");
+        var iconWrap = document.getElementById("iconWrap");
+        var iconImg = document.getElementById("iconImg");
 
-        if (!ctx.card) {
-          msg.innerHTML =
-            "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
-          return;
-        }
+        t.context().then(function (ctx) {
+          if (!ctx.card) {
+            msg.innerHTML =
+              "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
+            btn.style.display = "none";
+            return;
+          }
 
-        t.get("card", "shared", "paused").then(function (paused) {
-          msg.textContent = paused
-            ? "This card is currently paused. Click below to resume."
-            : "Pause this card to temporarily hide it from the board.";
-          btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
-          btn.className = paused ? "resume" : "";
-          btn.style.display = "block";
+          t.get("card", "shared", "paused").then(function (paused) {
+            // Update icon
+            iconImg.src = paused
+              ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
+              : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
+            iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
 
-          btn.onclick = function () {
-            // Re-fetch current value to avoid stale closure
-            t.get("card", "shared", "paused").then(function (currentPaused) {
-              t.set("card", "shared", "paused", !currentPaused).then(
-                function () {
-                  t.closePopup();
-                },
-              );
-            });
-          };
+            // Update title
+            title.textContent = paused ? "Resume Card" : "Pause Card";
+
+            // Update message
+            msg.textContent = paused
+              ? "This card is currently paused. Click below to resume."
+              : "Pause this card to temporarily hide it from the board.";
+
+            // Update button
+            btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
+            btn.className = paused ? "resume" : "";
+            btn.style.display = "block";
+
+            btn.onclick = function () {
+              t.get("card", "shared", "paused").then(function (currentPaused) {
+                t.set("card", "shared", "paused", !currentPaused).then(
+                  function () {
+                    t.closePopup();
+                  },
+                );
+              });
+            };
+          });
         });
       });
     </script>
