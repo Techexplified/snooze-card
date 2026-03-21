@@ -37,10 +37,7 @@
           return d;
         }
         function daysFrom(days) {
-          var d = new Date(now);
-          d.setDate(d.getDate() + days);
-          d.setHours(9, 0, 0, 0);
-          return d;
+          return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
         }
 
         var options = [
@@ -49,6 +46,7 @@
           { text: "In 4 hours", date: msFrom(4 * 60 * 60 * 1000) },
           { text: "Tomorrow morning", date: nextDay(9) },
           { text: "Tomorrow afternoon", date: nextDay(14) },
+          { text: "In 1 days", date: daysFrom(1) },
           { text: "In 2 days", date: daysFrom(2) },
           { text: "In 4 days", date: daysFrom(4) },
           { text: "In 1 week", date: daysFrom(7) },
