@@ -172,7 +172,7 @@
             });
         },
 
-        "card-badges": function (t) {
+        "card-detail-badges": function (t) {
           return t
             .get("card", "shared", "paused", false)
             .then(function (paused) {
@@ -183,9 +183,8 @@
                   return [
                     {
                       icon: ICON,
-                      text: pauseUntil
-                        ? "Paused until " + formatDate(pauseUntil)
-                        : "Paused",
+                      title: "Card Paused Until",
+                      text: pauseUntil ? formatDate(pauseUntil) : "Paused",
                       color: "blue",
                     },
                   ];
