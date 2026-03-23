@@ -6,6 +6,8 @@
   </head>
   <body>
     <script>
+      var TRELLO_API_KEY = "YOUR_ACTUAL_API_KEY_HERE";
+
       var ICON =
         "data:image/svg+xml;base64," +
         btoa(
@@ -69,15 +71,15 @@
                   })
                   .then(function (token) {
                     return t.card("id").then(function (card) {
-                      return fetch("/api/pause", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          cardId: card.id,
-                          pauseUntil: pauseUntil,
-                          token: token,
-                        }),
-                      });
+                      return fetch(
+                        "https://api.trello.com/1/cards/" +
+                          card.id +
+                          "?closed=true&key=" +
+                          TRELLO_API_KEY +
+                          "&token=" +
+                          token,
+                        { method: "PUT" },
+                      );
                     });
                   })
                   .then(function () {
@@ -138,16 +140,15 @@
                             })
                             .then(function (token) {
                               return t.card("id").then(function (card) {
-                                return fetch("/api/resume", {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    cardId: card.id,
-                                    token: token,
-                                  }),
-                                });
+                                return fetch(
+                                  "https://api.trello.com/1/cards/" +
+                                    card.id +
+                                    "?closed=false&key=" +
+                                    TRELLO_API_KEY +
+                                    "&token=" +
+                                    token,
+                                  { method: "PUT" },
+                                );
                               });
                             })
                             .then(function () {
