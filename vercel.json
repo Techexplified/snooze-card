@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/connector.html", "destination": "/connector.html" },
     { "source": "/popup.html", "destination": "/popup.html" },
