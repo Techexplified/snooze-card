@@ -59,33 +59,25 @@
             text: opt.text,
             callback: function (t) {
               var pauseUntil = opt.date.toISOString();
-              // Archive the card and save pause data
+              var API_KEY = "add761039ac8e9e90f29945c53c99805";
+              var TOKEN =
+                "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+
               return t
-                .set("card", "shared", "paused", true)
-                .then(function () {
-                  return t.set("card", "shared", "pauseUntil", pauseUntil);
+                .set("card", "shared", {
+                  paused: true,
+                  pauseUntil: pauseUntil,
+                  pausedAt: new Date().toISOString(),
                 })
                 .then(function () {
-                  return t.set(
-                    "card",
-                    "shared",
-                    "pausedAt",
-                    new Date().toISOString(),
+                  return t.card("id");
+                })
+                .then(function (card) {
+                  // This is the REST API call to Archive (closed=true)
+                  return fetch(
+                    `https://api.trello.com/1/cards/${card.id}?closed=true&key=${API_KEY}&token=${TOKEN}`,
+                    { method: "PUT" },
                   );
-                })
-                .then(function () {
-                  // Archive the card
-                  return t.card("id").then(function (card) {
-                    return fetch(
-                      "https://api.trello.com/1/cards/" +
-                        card.id +
-                        "?closed=true",
-                      {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                      },
-                    );
-                  });
                 })
                 .then(function () {
                   return t.closePopup();
@@ -122,13 +114,25 @@
                     icon: ICON,
                     text: "Resume Card",
                     callback: function (t) {
+                      var API_KEY = "add761039ac8e9e90f29945c53c99805";
+                      var TOKEN =
+                        "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+
                       return t
-                        .set("card", "shared", "paused", false)
-                        .then(function () {
-                          return t.set("card", "shared", "pauseUntil", null);
+                        .card("id")
+                        .then(function (card) {
+                          // This is the REST API call to Un-archive (closed=false)
+                          return fetch(
+                            `https://api.trello.com/1/cards/${card.id}?closed=false&key=${API_KEY}&token=${TOKEN}`,
+                            { method: "PUT" },
+                          );
                         })
                         .then(function () {
-                          return t.set("card", "shared", "pausedAt", null);
+                          return t.set("card", "shared", {
+                            paused: false,
+                            pauseUntil: null,
+                            pausedAt: null,
+                          });
                         })
                         .then(function () {
                           return t.closePopup();

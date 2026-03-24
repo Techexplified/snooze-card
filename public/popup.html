@@ -131,12 +131,28 @@
             btn.style.display = "block";
 
             btn.onclick = function () {
+              var API_KEY = "add761039ac8e9e90f29945c53c99805";
+              var TOKEN =
+                "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+
               t.get("card", "shared", "paused").then(function (currentPaused) {
-                t.set("card", "shared", "paused", !currentPaused).then(
-                  function () {
+                var newPausedState = !currentPaused;
+
+                return t
+                  .card("id")
+                  .then(function (card) {
+                    // Archive if we are pausing, Un-archive if we are resuming
+                    return fetch(
+                      `https://api.trello.com/1/cards/${card.id}?closed=${newPausedState}&key=${API_KEY}&token=${TOKEN}`,
+                      { method: "PUT" },
+                    );
+                  })
+                  .then(function () {
+                    return t.set("card", "shared", "paused", newPausedState);
+                  })
+                  .then(function () {
                     t.closePopup();
-                  },
-                );
+                  });
               });
             };
           });
