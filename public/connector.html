@@ -24,14 +24,17 @@
         });
       }
 
-      // --- Helper: authorized Trello fetch using REST API client ---
+      // Helper: get a REST API client (t.getRestApi() returns a Promise) [web:23]
+      function getApiClient(t) {
+        return t.getRestApi(); // this itself is a Promise that resolves to client
+      }
+
+      // Helper: ensure authorized, then fetch a Trello REST endpoint via the client [web:23]
       function trelloFetch(t, path, options) {
-        return t
-          .getRestApi()
+        return getApiClient(t)
           .then(function (api) {
             return api.isAuthorized().then(function (authorized) {
               if (!authorized) {
-                // ask the member once; scope read+write is enough here
                 return api.authorize({ scope: "read,write" }).then(function () {
                   return api;
                 });
@@ -41,7 +44,6 @@
           })
           .then(function (api) {
             var url = "https://api.trello.com/1" + path;
-            // API client can add auth via query params; here we let it sign for us
             return api.fetch(url, options || {});
           });
       }
@@ -96,7 +98,7 @@
                   );
                 })
                 .then(function () {
-                  // Archive the card (closed = true)
+                  // Archive the card (closed = true) [web:30]
                   return t.card("id").then(function (card) {
                     return trelloFetch(t, "/cards/" + card.id, {
                       method: "PUT",
@@ -141,7 +143,7 @@
                       icon: ICON,
                       text: "Resume Card",
                       callback: function (t) {
-                        // Unarchive the card and clear pause metadata
+                        // Unarchive card and clear pause metadata
                         return t
                           .card("id")
                           .then(function (card) {
@@ -221,7 +223,6 @@
           },
         },
         {
-          // IMPORTANT: set your real appKey/appName/author here
           appKey: "add761039ac8e9e90f29945c53c99805",
           appName: "Pause Card",
           appAuthor: "Explified",
