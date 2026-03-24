@@ -24,6 +24,28 @@
         });
       }
 
+      // --- Helper: authorized Trello fetch using REST API client ---
+      function trelloFetch(t, path, options) {
+        return t
+          .getRestApi()
+          .then(function (api) {
+            return api.isAuthorized().then(function (authorized) {
+              if (!authorized) {
+                // ask the member once; scope read+write is enough here
+                return api.authorize({ scope: "read,write" }).then(function () {
+                  return api;
+                });
+              }
+              return api;
+            });
+          })
+          .then(function (api) {
+            var url = "https://api.trello.com/1" + path;
+            // API client can add auth via query params; here we let it sign for us
+            return api.fetch(url, options || {});
+          });
+      }
+
       function getPauseItems(t) {
         var now = new Date();
 
@@ -59,7 +81,7 @@
             text: opt.text,
             callback: function (t) {
               var pauseUntil = opt.date.toISOString();
-              // Archive the card and save pause data
+              // Save pause data and archive the card
               return t
                 .set("card", "shared", "paused", true)
                 .then(function () {
@@ -74,17 +96,13 @@
                   );
                 })
                 .then(function () {
-                  // Archive the card
+                  // Archive the card (closed = true)
                   return t.card("id").then(function (card) {
-                    return fetch(
-                      "https://api.trello.com/1/cards/" +
-                        card.id +
-                        "?closed=true",
-                      {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                      },
-                    );
+                    return trelloFetch(t, "/cards/" + card.id, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ closed: true }),
+                    });
                   });
                 })
                 .then(function () {
@@ -95,102 +113,120 @@
         });
       }
 
-      window.TrelloPowerUp.initialize({
-        "board-buttons": function (t) {
-          return [
-            {
-              text: "Pause Card",
-              icon: { dark: ICON, light: ICON },
-              callback: function (t) {
-                return t.popup({
-                  title: "Pause Card",
-                  url: t.signUrl("./popup.html"),
-                  height: 220,
-                });
+      window.TrelloPowerUp.initialize(
+        {
+          "board-buttons": function (t) {
+            return [
+              {
+                text: "Pause Card",
+                icon: { dark: ICON, light: ICON },
+                callback: function (t) {
+                  return t.popup({
+                    title: "Pause Card",
+                    url: t.signUrl("./popup.html"),
+                    height: 220,
+                  });
+                },
               },
-            },
-          ];
-        },
+            ];
+          },
 
-        "card-buttons": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (paused) {
-                return [
-                  {
-                    icon: ICON,
-                    text: "Resume Card",
-                    callback: function (t) {
-                      return t
-                        .set("card", "shared", "paused", false)
-                        .then(function () {
-                          return t.set("card", "shared", "pauseUntil", null);
-                        })
-                        .then(function () {
-                          return t.set("card", "shared", "pausedAt", null);
-                        })
-                        .then(function () {
-                          return t.closePopup();
-                        });
-                    },
-                  },
-                ];
-              }
-
-              return [
-                {
-                  icon: ICON,
-                  text: "Pause Card",
-                  callback: function (t) {
-                    return t.popup({
-                      title: "Pause Until",
-                      items: getPauseItems(t),
-                    });
-                  },
-                },
-              ];
-            });
-        },
-
-        "card-back-section": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (!paused) return null;
-              return {
-                title: "Card Paused Until",
-                icon: ICON,
-                content: {
-                  type: "iframe",
-                  url: t.signUrl("./section.html"),
-                  height: 70,
-                },
-              };
-            });
-        },
-
-        "card-detail-badges": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (!paused) return [];
-              return t
-                .get("card", "shared", "pauseUntil")
-                .then(function (pauseUntil) {
+          "card-buttons": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (paused) {
                   return [
                     {
                       icon: ICON,
-                      title: "Card Paused Until",
-                      text: pauseUntil ? formatDate(pauseUntil) : "Paused",
-                      color: "blue",
+                      text: "Resume Card",
+                      callback: function (t) {
+                        // Unarchive the card and clear pause metadata
+                        return t
+                          .card("id")
+                          .then(function (card) {
+                            return trelloFetch(t, "/cards/" + card.id, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ closed: false }),
+                            });
+                          })
+                          .then(function () {
+                            return t.set("card", "shared", "paused", false);
+                          })
+                          .then(function () {
+                            return t.set("card", "shared", "pauseUntil", null);
+                          })
+                          .then(function () {
+                            return t.set("card", "shared", "pausedAt", null);
+                          })
+                          .then(function () {
+                            return t.closePopup();
+                          });
+                      },
                     },
                   ];
-                });
-            });
+                }
+
+                return [
+                  {
+                    icon: ICON,
+                    text: "Pause Card",
+                    callback: function (t) {
+                      return t.popup({
+                        title: "Pause Until",
+                        items: getPauseItems(t),
+                      });
+                    },
+                  },
+                ];
+              });
+          },
+
+          "card-back-section": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return null;
+                return {
+                  title: "Card Paused Until",
+                  icon: ICON,
+                  content: {
+                    type: "iframe",
+                    url: t.signUrl("./section.html"),
+                    height: 70,
+                  },
+                };
+              });
+          },
+
+          "card-detail-badges": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return [];
+                return t
+                  .get("card", "shared", "pauseUntil")
+                  .then(function (pauseUntil) {
+                    return [
+                      {
+                        icon: ICON,
+                        title: "Card Paused Until",
+                        text: pauseUntil ? formatDate(pauseUntil) : "Paused",
+                        color: "blue",
+                      },
+                    ];
+                  });
+              });
+          },
         },
-      });
+        {
+          // IMPORTANT: set your real appKey/appName/author here
+          appKey: "add761039ac8e9e90f29945c53c99805",
+          appName: "Pause Card",
+          appAuthor: "Explified",
+        },
+      );
     </script>
   </body>
 </html>
-<!-- correction -->
