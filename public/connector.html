@@ -24,6 +24,15 @@
         });
       }
 
+      async function getApiClient(t) {
+        const client = await t.getRestApi();
+        const isAuthorized = await client.isAuthorized();
+        if (!isAuthorized) {
+          await client.authorize({ scope: "read,write" });
+        }
+        return client;
+      }
+
       async function archiveCard(t, client) {
         const card = await t.card("id");
         await client.put(`cards/${card.id}`, { closed: true });
@@ -68,15 +77,19 @@
           return {
             text: opt.text,
             callback: async function (t) {
-              const pauseUntil = opt.date.toISOString();
-              const client = await t.getRestApiClient();
-              await t.set("card", "shared", {
-                paused: true,
-                pauseUntil: pauseUntil,
-                pausedAt: new Date().toISOString(),
-              });
-              await archiveCard(t, client);
-              return t.closePopup();
+              try {
+                const client = await getApiClient(t);
+                const pauseUntil = opt.date.toISOString();
+                await t.set("card", "shared", {
+                  paused: true,
+                  pauseUntil: pauseUntil,
+                  pausedAt: new Date().toISOString(),
+                });
+                await archiveCard(t, client);
+                return t.closePopup();
+              } catch (e) {
+                console.error("Pause failed:", e);
+              }
             },
           };
         });
@@ -100,72 +113,89 @@
             ];
           },
 
-          "card-buttons": async function (t) {
-            const paused = await t.get("card", "shared", "paused", false);
-            if (paused) {
-              return [
-                {
-                  icon: ICON,
-                  text: "Resume Card",
-                  callback: async function (t) {
-                    const client = await t.getRestApiClient();
-                    await unarchiveCard(t, client);
-                    await t.set("card", "shared", {
-                      paused: false,
-                      pauseUntil: null,
-                      pausedAt: null,
-                    });
-                    return t.closePopup();
+          "card-buttons": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(async function (paused) {
+                if (paused) {
+                  return [
+                    {
+                      icon: ICON,
+                      text: "Resume Card",
+                      callback: async function (t) {
+                        try {
+                          const client = await getApiClient(t);
+                          await unarchiveCard(t, client);
+                          await t.set("card", "shared", {
+                            paused: false,
+                            pauseUntil: null,
+                            pausedAt: null,
+                          });
+                          return t.closePopup();
+                        } catch (e) {
+                          console.error("Resume failed:", e);
+                        }
+                      },
+                    },
+                  ];
+                }
+
+                return [
+                  {
+                    icon: ICON,
+                    text: "Pause Card",
+                    callback: function (t) {
+                      return t.popup({
+                        title: "Pause Until",
+                        items: getPauseItems(t),
+                      });
+                    },
                   },
-                },
-              ];
-            }
+                ];
+              });
+          },
 
-            return [
-              {
-                icon: ICON,
-                text: "Pause Card",
-                callback: function (t) {
-                  return t.popup({
-                    title: "Pause Until",
-                    items: getPauseItems(t),
+          "card-back-section": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return null;
+                return {
+                  title: "Card Paused Until",
+                  icon: ICON,
+                  content: {
+                    type: "iframe",
+                    url: t.signUrl("./section.html"),
+                    height: 70,
+                  },
+                };
+              });
+          },
+
+          "card-detail-badges": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return [];
+                return t
+                  .get("card", "shared", "pauseUntil")
+                  .then(function (pauseUntil) {
+                    return [
+                      {
+                        icon: ICON,
+                        title: "Card Paused Until",
+                        text: pauseUntil ? formatDate(pauseUntil) : "Paused",
+                        color: "blue",
+                      },
+                    ];
                   });
-                },
-              },
-            ];
-          },
-
-          "card-back-section": async function (t) {
-            const paused = await t.get("card", "shared", "paused", false);
-            if (!paused) return null;
-            return {
-              title: "Card Paused Until",
-              icon: ICON,
-              content: {
-                type: "iframe",
-                url: t.signUrl("./section.html"),
-                height: 70,
-              },
-            };
-          },
-
-          "card-detail-badges": async function (t) {
-            const paused = await t.get("card", "shared", "paused", false);
-            if (!paused) return [];
-            const pauseUntil = await t.get("card", "shared", "pauseUntil");
-            return [
-              {
-                icon: ICON,
-                title: "Card Paused Until",
-                text: pauseUntil ? formatDate(pauseUntil) : "Paused",
-                color: "blue",
-              },
-            ];
+              });
           },
         },
         {
           appKey: "add761039ac8e9e90f29945c53c99805",
           appName: "Pause Card",
+          appAuthor: "Explified",
         },
       );
     </script>

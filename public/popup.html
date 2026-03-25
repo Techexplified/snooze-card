@@ -101,7 +101,7 @@
       async function togglePause() {
         const currentPaused = await t.get("card", "shared", "paused");
         const newPausedState = !currentPaused;
-        const client = await t.getRestApiClient();
+        const client = await t.getRestApi();
 
         await client.put(`cards/${(await t.card("id")).id}`, {
           closed: newPausedState,
