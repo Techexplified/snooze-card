@@ -37,11 +37,15 @@
     <div class="label">Card Paused Until</div>
     <div class="date-badge" id="date">Loading...</div>
     <script>
-      var t = TrelloPowerUp.iframe();
-      t.get("card", "shared", "pauseUntil").then(function (pauseUntil) {
-        var el = document.getElementById("date");
+      var t = TrelloPowerUp.iframe({
+        appKey: "add761039ac8e9e90f29945c53c99805",
+        appName: "Pause Card",
+      });
+      t.render(async function () {
+        const pauseUntil = await t.get("card", "shared", "pauseUntil");
+        const el = document.getElementById("date");
         if (pauseUntil) {
-          var d = new Date(pauseUntil);
+          const d = new Date(pauseUntil);
           el.textContent = d.toLocaleString("en-US", {
             month: "long",
             day: "numeric",

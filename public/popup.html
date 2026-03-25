@@ -93,90 +93,67 @@
     </div>
 
     <script>
-      var API_KEY = "add761039ac8e9e90f29945c53c99805"; // Replace with your actual key
-      var t = TrelloPowerUp.iframe();
+      var t = TrelloPowerUp.iframe({
+        appKey: "add761039ac8e9e90f29945c53c99805",
+        appName: "Pause Card",
+      });
 
-      // Helper to get token or prompt for auth
-      function getVerifyToken(t) {
-        return t.get("member", "private", "token").then(function (token) {
-          console.log("TOKEN:", token);
+      async function togglePause() {
+        const currentPaused = await t.get("card", "shared", "paused");
+        const newPausedState = !currentPaused;
+        const client = await t.getRestApiClient();
 
-          if (token) return token;
-
-          return t
-            .popup({
-              url: "./authorize.html",
-              height: 140,
-            })
-            .then(function () {
-              return t.get("member", "private", "token");
-            });
+        await client.put(`cards/${(await t.card("id")).id}`, {
+          closed: newPausedState,
         });
+
+        await t.set("card", "shared", {
+          paused: newPausedState,
+          ...(newPausedState
+            ? {
+                pauseUntil: new Date(
+                  Date.now() + 24 * 60 * 60 * 1000,
+                ).toISOString(), // Default 1 day
+                pausedAt: new Date().toISOString(),
+              }
+            : { pauseUntil: null, pausedAt: null }),
+        });
+
+        t.closePopup();
       }
 
-      t.render(function () {
-        var btn = document.getElementById("btn");
-        var msg = document.getElementById("msg");
-        var title = document.getElementById("title");
-        var iconWrap = document.getElementById("iconWrap");
-        var iconImg = document.getElementById("iconImg");
+      t.render(async function () {
+        const ctx = await t.context();
+        if (!ctx.card) {
+          document.getElementById("msg").innerHTML =
+            "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
+          document.getElementById("btn").style.display = "none";
+          return;
+        }
 
-        t.card("id")
-          .then(function (card) {
-            if (!card || !card.id) {
-              msg.innerHTML =
-                "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
-              btn.style.display = "none";
-              return;
-            }
+        const paused = await t.get("card", "shared", "paused");
+        const btn = document.getElementById("btn");
+        const msg = document.getElementById("msg");
+        const title = document.getElementById("title");
+        const iconWrap = document.getElementById("iconWrap");
+        const iconImg = document.getElementById("iconImg");
 
-            return t
-              .get("card", "shared", "paused", false)
-              .then(function (paused) {
-                // UI Updates
-                iconImg.src = paused
-                  ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
-                  : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
-                iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
-                title.textContent = paused ? "Resume Card" : "Pause Card";
-                msg.textContent = paused
-                  ? "This card is currently paused. Click below to resume."
-                  : "Pause this card to temporarily hide it from the board.";
-                btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
-                btn.className = paused ? "resume" : "";
-                btn.style.display = "block";
+        iconImg.src = paused
+          ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
+          : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
+        iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
 
-                btn.onclick = function () {
-                  return function getVerifyToken(t) {
-                    return t
-                      .get("member", "private", "token")
-                      .then(function (token) {
-                        if (token) return token;
+        title.textContent = paused ? "Resume Card" : "Pause Card";
 
-                        return t
-                          .popup({
-                            title: "Authorize Pause Card",
-                            url: "./authorize.html",
-                            height: 140,
-                          })
-                          .then(function () {
-                            // ✅ Small delay to ensure t.set() has synced before re-reading
-                            return new Promise(function (resolve) {
-                              setTimeout(function () {
-                                resolve(t.get("member", "private", "token"));
-                              }, 500);
-                            });
-                          });
-                      });
-                  };
-                };
-              });
-          })
-          .catch(function () {
-            msg.innerHTML =
-              "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
-            btn.style.display = "none";
-          });
+        msg.textContent = paused
+          ? "This card is currently paused. Click below to resume."
+          : "Pause this card to temporarily hide it from the board.";
+
+        btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
+        btn.className = paused ? "resume" : "";
+        btn.style.display = "block";
+
+        btn.onclick = togglePause;
       });
     </script>
   </body>
