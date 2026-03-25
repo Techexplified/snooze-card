@@ -6,6 +6,9 @@
   </head>
   <body>
     <script>
+      // Replace this with your actual Trello API Key
+      var API_KEY = "add761039ac8e9e90f29945c53c99805";
+
       var ICON =
         "data:image/svg+xml;base64," +
         btoa(
@@ -24,9 +27,24 @@
         });
       }
 
+      // Helper to ensure we have a token before making API calls
+      function getVerifyToken(t) {
+        return t.get("member", "private", "token").then(function (token) {
+          if (token) return token;
+
+          // Use t.authorize instead of t.authenticate for standard OAuth popups
+          return t.authorize("./authorize.html", {
+            height: 140,
+            width: 400,
+            validToken: function (token) {
+              return !!token; // Ensures the flow only finishes if a token exists
+            },
+          });
+        });
+      }
+
       function getPauseItems(t) {
         var now = new Date();
-
         function msFrom(ms) {
           return new Date(now.getTime() + ms);
         }
@@ -43,51 +61,69 @@
         var options = [
           { text: "In 1 hour", date: msFrom(1 * 60 * 60 * 1000) },
           { text: "In 2 hours", date: msFrom(2 * 60 * 60 * 1000) },
-          { text: "In 4 hours", date: msFrom(4 * 60 * 60 * 1000) },
           { text: "Tomorrow morning", date: nextDay(9) },
-          { text: "Tomorrow afternoon", date: nextDay(14) },
-          { text: "In 1 days", date: daysFrom(1) },
+          { text: "In 1 day", date: daysFrom(1) },
           { text: "In 2 days", date: daysFrom(2) },
-          { text: "In 4 days", date: daysFrom(4) },
           { text: "In 1 week", date: daysFrom(7) },
-          { text: "In 2 weeks", date: daysFrom(14) },
-          { text: "In 1 month", date: daysFrom(30) },
         ];
 
         return options.map(function (opt) {
           return {
             text: opt.text,
             callback: function (t) {
-              var pauseUntil = opt.date.toISOString();
-              var API_KEY = "add761039ac8e9e90f29945c53c99805";
-              var TOKEN =
-                "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+              return getVerifyToken(t).then(function (token) {
+                if (!token) return;
 
-              return t
-                .set("card", "shared", {
-                  paused: true,
-                  pauseUntil: pauseUntil,
-                  pausedAt: new Date().toISOString(),
-                })
-                .then(function () {
-                  return t.card("id");
-                })
-                .then(function (card) {
-                  // This is the REST API call to Archive (closed=true)
-                  return fetch(
-                    `https://api.trello.com/1/cards/${card.id}?closed=true&key=${API_KEY}&token=${TOKEN}`,
-                    { method: "PUT" },
-                  );
-                })
-                .then(function () {
-                  return t.closePopup();
-                });
+                var pauseUntil = opt.date.toISOString();
+
+                // 1. Save pause metadata
+                return t
+                  .set("card", "shared", {
+                    paused: true,
+                    pauseUntil: pauseUntil,
+                    pausedAt: new Date().toISOString(),
+                  })
+                  .then(function () {
+                    return t.card("id");
+                  })
+                  .then(function (card) {
+                    // 2. Archive the card (REST API)
+                    return fetch(
+                      "https://api.trello.com/1/cards/" +
+                        card.id +
+                        "?closed=true&key=" +
+                        API_KEY +
+                        "&token=" +
+                        token,
+                      { method: "PUT" },
+                    );
+                  })
+                  .then(function () {
+                    return t.closePopup();
+                  });
+              });
             },
           };
         });
       }
 
       window.TrelloPowerUp.initialize({
+        "authorization-status": function (t) {
+          // Check if we already have a token saved privately for this member
+          return t.get("member", "private", "token").then(function (token) {
+            return { authorized: !!token };
+          });
+        },
+
+        "show-authorization": function (t) {
+          // This is triggered when the user clicks "Authorize Account"
+          return t.popup({
+            title: "Authorize Pause Card",
+            url: "./authorize.html", // This is your "Authorizing URL"
+            height: 140,
+          });
+        },
+
         "board-buttons": function (t) {
           return [
             {
@@ -114,29 +150,35 @@
                     icon: ICON,
                     text: "Resume Card",
                     callback: function (t) {
-                      var API_KEY = "add761039ac8e9e90f29945c53c99805";
-                      var TOKEN =
-                        "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+                      return getVerifyToken(t).then(function (token) {
+                        if (!token) return;
 
-                      return t
-                        .card("id")
-                        .then(function (card) {
-                          // This is the REST API call to Un-archive (closed=false)
-                          return fetch(
-                            `https://api.trello.com/1/cards/${card.id}?closed=false&key=${API_KEY}&token=${TOKEN}`,
-                            { method: "PUT" },
-                          );
-                        })
-                        .then(function () {
-                          return t.set("card", "shared", {
-                            paused: false,
-                            pauseUntil: null,
-                            pausedAt: null,
+                        return t
+                          .card("id")
+                          .then(function (card) {
+                            // 1. Un-archive the card
+                            return fetch(
+                              "https://api.trello.com/1/cards/" +
+                                card.id +
+                                "?closed=false&key=" +
+                                API_KEY +
+                                "&token=" +
+                                token,
+                              { method: "PUT" },
+                            );
+                          })
+                          .then(function () {
+                            // 2. Clear pause metadata
+                            return t.set("card", "shared", {
+                              paused: false,
+                              pauseUntil: null,
+                              pausedAt: null,
+                            });
+                          })
+                          .then(function () {
+                            t.closePopup();
                           });
-                        })
-                        .then(function () {
-                          return t.closePopup();
-                        });
+                      });
                     },
                   },
                 ];
@@ -197,4 +239,3 @@
     </script>
   </body>
 </html>
-<!-- correction -->

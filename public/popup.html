@@ -93,7 +93,22 @@
     </div>
 
     <script>
+      var API_KEY = "add761039ac8e9e90f29945c53c99805"; // Replace with your actual key
       var t = TrelloPowerUp.iframe();
+
+      // Helper to get token or prompt for auth
+      function getVerifyToken(t) {
+        return t.get("member", "private", "token").then(function (token) {
+          if (!token) {
+            return t.authenticate({
+              url: "./authorize.html",
+              height: 140,
+              resizable: false,
+            });
+          }
+          return token;
+        });
+      }
 
       t.render(function () {
         var btn = document.getElementById("btn");
@@ -110,45 +125,53 @@
             return;
           }
 
-          t.get("card", "shared", "paused").then(function (paused) {
-            // Update icon
+          t.get("card", "shared", "paused", false).then(function (paused) {
+            // UI Updates
             iconImg.src = paused
               ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
               : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
             iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
-
-            // Update title
             title.textContent = paused ? "Resume Card" : "Pause Card";
-
-            // Update message
             msg.textContent = paused
               ? "This card is currently paused. Click below to resume."
               : "Pause this card to temporarily hide it from the board.";
-
-            // Update button
             btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
             btn.className = paused ? "resume" : "";
             btn.style.display = "block";
 
             btn.onclick = function () {
-              var API_KEY = "add761039ac8e9e90f29945c53c99805";
-              var TOKEN =
-                "ATTA498f3b49e37c782721c7b4b35e893ca801b5fbe1644c9331b53976ae2162fd49A46DDF8E";
+              return getVerifyToken(t).then(function (token) {
+                if (!token) return;
 
-              t.get("card", "shared", "paused").then(function (currentPaused) {
-                var newPausedState = !currentPaused;
+                var nextPausedState = !paused;
 
                 return t
                   .card("id")
                   .then(function (card) {
-                    // Archive if we are pausing, Un-archive if we are resuming
+                    // 1. Tell Trello to archive (true) or un-archive (false)
                     return fetch(
-                      `https://api.trello.com/1/cards/${card.id}?closed=${newPausedState}&key=${API_KEY}&token=${TOKEN}`,
+                      "https://api.trello.com/1/cards/" +
+                        card.id +
+                        "?closed=" +
+                        nextPausedState +
+                        "&key=" +
+                        API_KEY +
+                        "&token=" +
+                        token,
                       { method: "PUT" },
                     );
                   })
                   .then(function () {
-                    return t.set("card", "shared", "paused", newPausedState);
+                    // 2. Update metadata
+                    return t.set("card", "shared", {
+                      paused: nextPausedState,
+                      pauseUntil: nextPausedState
+                        ? new Date(Date.now() + 3600000).toISOString()
+                        : null, // Default 1hr if paused from here
+                      pausedAt: nextPausedState
+                        ? new Date().toISOString()
+                        : null,
+                    });
                   })
                   .then(function () {
                     t.closePopup();

@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <button id="auth-btn" style="width: 100%; padding: 10px">
+      Allow Access to Trello
+    </button>
+    <script>
+      var t = TrelloPowerUp.iframe();
+      var API_KEY = "add761039ac8e9e90f29945c53c99805";
+
+      document
+        .getElementById("auth-btn")
+        .addEventListener("click", function () {
+          t.authorize(
+            `https://trello.com/1/authorize?expiration=never&name=Pause%20Card&scope=read,write&response_type=token&key=${API_KEY}`,
+          )
+            .then(function (token) {
+              // Save the token PRIVATELY to this user
+              return t.set("member", "private", "token", token);
+            })
+            .then(function () {
+              // Close the popup and tell Trello we are done
+              return t.closePopup();
+            });
+        });
+    </script>
+  </body>
+</html>
