@@ -32,12 +32,12 @@
         return t.get("member", "private", "token").then(function (token) {
           if (token) return token;
 
-          // Use t.authorize instead of t.authenticate for standard OAuth popups
+          // Open the simple authorize.html page to handle the OAuth flow
           return t.authorize("./authorize.html", {
             height: 140,
             width: 400,
             validToken: function (token) {
-              return !!token; // Ensures the flow only finishes if a token exists
+              return !!token;
             },
           });
         });
@@ -109,17 +109,15 @@
 
       window.TrelloPowerUp.initialize({
         "authorization-status": function (t) {
-          // Check if we already have a token saved privately for this member
           return t.get("member", "private", "token").then(function (token) {
             return { authorized: !!token };
           });
         },
 
         "show-authorization": function (t) {
-          // This is triggered when the user clicks "Authorize Account"
           return t.popup({
             title: "Authorize Pause Card",
-            url: "./authorize.html", // This is your "Authorizing URL"
+            url: "./authorize.html",
             height: 140,
           });
         },
