@@ -14,10 +14,13 @@
         border: none;
         border-radius: 5px;
         cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
       "
     >
       Allow Access to Trello
     </button>
+
     <script>
       var t = TrelloPowerUp.iframe();
       var API_KEY = "add761039ac8e9e90f29945c53c99805";
@@ -25,22 +28,35 @@
       document
         .getElementById("auth-btn")
         .addEventListener("click", function () {
-          t.authorize(
+          // Open Trello OAuth in a real new window (not nested popup)
+          var authUrl =
             "https://trello.com/1/authorize?expiration=never&name=PauseCard&scope=read,write&response_type=token&key=" +
-              API_KEY,
-          )
-            .then(function (token) {
-              return t
-                .set("member", "private", "token", token)
-                .then(function () {
-                  return token; // 👈 IMPORTANT: return token
-                });
-            })
-            .then(function (token) {
-              return t.closePopup().then(function () {
-                return token; // 👈 pass token back to parent
-              });
+            API_KEY +
+            "&callback_method=postMessage" +
+            "&return_url=" +
+            encodeURIComponent(window.location.origin);
+
+          var authWindow = window.open(
+            authUrl,
+            "trello-auth",
+            "width=500,height=600",
+          );
+
+          // Listen for the token via postMessage
+          window.addEventListener("message", function handler(e) {
+            var token = e.data && (e.data.token || e.data);
+
+            if (typeof token !== "string" || token.length < 10) return;
+
+            window.removeEventListener("message", handler);
+            if (authWindow) authWindow.close();
+
+            // Save token FIRST, then close popup
+            t.set("member", "private", "token", token).then(function () {
+              console.log("Token saved:", token);
+              return t.closePopup();
             });
+          });
         });
     </script>
   </body>

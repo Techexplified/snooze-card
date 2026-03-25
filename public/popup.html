@@ -147,43 +147,34 @@
                 btn.style.display = "block";
 
                 btn.onclick = function () {
-                  return getVerifyToken(t).then(function (token) {
-                    if (!token) return;
-
-                    var nextPausedState = !paused;
-
+                  return function getVerifyToken(t) {
                     return t
-                      .card("id")
-                      .then(function (card) {
-                        // 1. Tell Trello to archive (true) or un-archive (false)
-                        return fetch(
-                          "https://api.trello.com/1/cards/" +
-                            card.id +
-                            "?closed=" +
-                            nextPausedState +
-                            "&key=" +
-                            API_KEY +
-                            "&token=" +
-                            token,
-                          { method: "PUT" },
-                        );
-                      })
-                      .then(function () {
-                        // 2. Update metadata
-                        return t.set("card", "shared", {
-                          paused: nextPausedState,
-                          pauseUntil: nextPausedState
-                            ? new Date(Date.now() + 3600000).toISOString()
-                            : null, // Default 1hr if paused from here
-                          pausedAt: nextPausedState
-                            ? new Date().toISOString()
-                            : null,
-                        });
-                      })
-                      .then(function () {
-                        t.closePopup();
+                      .get("member", "private", "token")
+                      .then(function (token) {
+                        if (token) return token;
+
+                        // ✅ Call t.authorize() directly — not from inside a nested popup
+                        return t
+                          .authorize(
+                            "https://trello.com/1/authorize?expiration=never&name=PauseCard&scope=read,write&response_type=token&key=" +
+                              API_KEY,
+                            { height: 680, width: 580 },
+                          )
+                          .then(function (token) {
+                            if (!token) {
+                              console.error(
+                                "Authorization failed or was denied.",
+                              );
+                              return null;
+                            }
+                            return t
+                              .set("member", "private", "token", token)
+                              .then(function () {
+                                return token;
+                              });
+                          });
                       });
-                  });
+                  };
                 };
               });
           })
