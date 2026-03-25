@@ -20,6 +20,10 @@
     >
       Allow Access to Trello
     </button>
+    <p
+      id="status"
+      style="font-size: 12px; color: #666; text-align: center; margin-top: 8px"
+    ></p>
 
     <script>
       var t = TrelloPowerUp.iframe();
@@ -28,35 +32,32 @@
       document
         .getElementById("auth-btn")
         .addEventListener("click", function () {
-          // Open Trello OAuth in a real new window (not nested popup)
-          var authUrl =
+          var status = document.getElementById("status");
+          status.textContent = "Authorizing...";
+
+          t.authorize(
             "https://trello.com/1/authorize?expiration=never&name=PauseCard&scope=read,write&response_type=token&key=" +
-            API_KEY +
-            "&callback_method=postMessage" +
-            "&return_url=" +
-            encodeURIComponent(window.location.origin);
+              API_KEY,
+          )
+            .then(function (token) {
+              if (!token) {
+                status.textContent = "Authorization failed. Please try again.";
+                return;
+              }
+              status.textContent = "Saving...";
 
-          var authWindow = window.open(
-            authUrl,
-            "trello-auth",
-            "width=500,height=600",
-          );
-
-          // Listen for the token via postMessage
-          window.addEventListener("message", function handler(e) {
-            var token = e.data && (e.data.token || e.data);
-
-            if (typeof token !== "string" || token.length < 10) return;
-
-            window.removeEventListener("message", handler);
-            if (authWindow) authWindow.close();
-
-            // Save token FIRST, then close popup
-            t.set("member", "private", "token", token).then(function () {
-              console.log("Token saved:", token);
-              return t.closePopup();
+              // ✅ Wait for set() to fully complete before closing
+              return t
+                .set("member", "private", "token", token)
+                .then(function () {
+                  status.textContent = "Done!";
+                  return t.closePopup();
+                });
+            })
+            .catch(function (err) {
+              console.error("Auth error:", err);
+              status.textContent = "Error: " + (err.message || "Unknown error");
             });
-          });
         });
     </script>
   </body>

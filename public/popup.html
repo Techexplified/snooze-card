@@ -153,25 +153,19 @@
                       .then(function (token) {
                         if (token) return token;
 
-                        // ✅ Call t.authorize() directly — not from inside a nested popup
                         return t
-                          .authorize(
-                            "https://trello.com/1/authorize?expiration=never&name=PauseCard&scope=read,write&response_type=token&key=" +
-                              API_KEY,
-                            { height: 680, width: 580 },
-                          )
-                          .then(function (token) {
-                            if (!token) {
-                              console.error(
-                                "Authorization failed or was denied.",
-                              );
-                              return null;
-                            }
-                            return t
-                              .set("member", "private", "token", token)
-                              .then(function () {
-                                return token;
-                              });
+                          .popup({
+                            title: "Authorize Pause Card",
+                            url: "./authorize.html",
+                            height: 140,
+                          })
+                          .then(function () {
+                            // ✅ Small delay to ensure t.set() has synced before re-reading
+                            return new Promise(function (resolve) {
+                              setTimeout(function () {
+                                resolve(t.get("member", "private", "token"));
+                              }, 500);
+                            });
                           });
                       });
                   };
