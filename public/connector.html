@@ -134,43 +134,33 @@
           "card-buttons": function (t) {
             return t
               .get("card", "shared", "paused", false)
-              .then(async function (paused) {
+              .then(function (paused) {
                 if (paused) {
                   return [
                     {
                       icon: ICON,
                       text: "Resume Card",
                       callback: function (t) {
-                        return (async function () {
-                          try {
-                            const client = await t.getRestApi();
-                            const isAuthorized = await client.isAuthorized();
-                            if (!isAuthorized)
-                              await client.authorize({ scope: "read,write" });
-                            await unarchiveCard(t, client); // Your helper function
-                            await t.set("card", "shared", {
-                              paused: false,
-                              pauseUntil: null,
-                              pausedAt: null,
-                            });
-                            return t.closePopup();
-                          } catch (e) {
-                            console.error("Resume error:", e);
-                          }
-                        })();
+                        // Direct resume, no popup
+                        return t.popup({
+                          // Use popup.html for resume too
+                          title: "Resume Card",
+                          url: t.signUrl("./popup.html"),
+                          height: 220,
+                        });
                       },
                     },
                   ];
                 }
-
                 return [
                   {
                     icon: ICON,
                     text: "Pause Card",
                     callback: function (t) {
                       return t.popup({
-                        title: "Pause Until",
-                        items: getPauseItems(t),
+                        title: "Pause Card",
+                        url: t.signUrl("./popup.html"),
+                        height: 220,
                       });
                     },
                   },
