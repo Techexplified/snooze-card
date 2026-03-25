@@ -30,10 +30,16 @@
               API_KEY,
           )
             .then(function (token) {
-              return t.set("member", "private", "token", token); // Saves token to the user
+              return t
+                .set("member", "private", "token", token)
+                .then(function () {
+                  return token; // 👈 IMPORTANT: return token
+                });
             })
-            .then(function () {
-              return t.closePopup(); // Closes the window and resumes the connector logic
+            .then(function (token) {
+              return t.closePopup().then(function () {
+                return token; // 👈 pass token back to parent
+              });
             });
         });
     </script>

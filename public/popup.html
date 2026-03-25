@@ -99,6 +99,7 @@
       // Helper to get token or prompt for auth
       function getVerifyToken(t) {
         return t.get("member", "private", "token").then(function (token) {
+          console.log("TOKEN:", token);
           if (!token) {
             return t.authenticate({
               url: "./authorize.html",
