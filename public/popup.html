@@ -96,31 +96,42 @@
       var t = TrelloPowerUp.iframe({
         appKey: "add761039ac8e9e90f29945c53c99805",
         appName: "Pause Card",
-        appAuthor: "Explified",
       });
 
+      async function getApiClient() {
+        const client = await t.getRestApi(); // FIXED: getRestApi()
+        const isAuthorized = await client.isAuthorized();
+        if (!isAuthorized) {
+          await client.authorize({ scope: "read,write" });
+        }
+        return client;
+      }
+
       async function togglePause() {
-        const currentPaused = await t.get("card", "shared", "paused");
-        const newPausedState = !currentPaused;
-        const client = await t.getRestApi();
+        try {
+          const currentPaused = await t.get("card", "shared", "paused");
+          const newPausedState = !currentPaused;
+          const client = await getApiClient(); // Now uses correct method + auth
 
-        await client.put(`cards/${(await t.card("id")).id}`, {
-          closed: newPausedState,
-        });
+          const card = await t.card("id");
+          await client.put(`cards/${card.id}`, { closed: newPausedState });
 
-        await t.set("card", "shared", {
-          paused: newPausedState,
-          ...(newPausedState
-            ? {
-                pauseUntil: new Date(
-                  Date.now() + 24 * 60 * 60 * 1000,
-                ).toISOString(), // Default 1 day
-                pausedAt: new Date().toISOString(),
-              }
-            : { pauseUntil: null, pausedAt: null }),
-        });
+          await t.set("card", "shared", {
+            paused: newPausedState,
+            ...(newPausedState
+              ? {
+                  pauseUntil: new Date(
+                    Date.now() + 24 * 60 * 60 * 1000,
+                  ).toISOString(),
+                  pausedAt: new Date().toISOString(),
+                }
+              : { pauseUntil: null, pausedAt: null }),
+          });
 
-        t.closePopup();
+          t.closePopup();
+        } catch (e) {
+          console.error("Toggle failed:", e);
+        }
       }
 
       t.render(async function () {
