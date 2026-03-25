@@ -73,26 +73,44 @@
           { text: "In 1 month", date: daysFrom(30) },
         ];
 
-        return options.map(function (opt) {
-          return {
-            text: opt.text,
-            callback: async function (t) {
-              try {
-                const client = await getApiClient(t);
-                const pauseUntil = opt.date.toISOString();
-                await t.set("card", "shared", {
-                  paused: true,
-                  pauseUntil: pauseUntil,
-                  pausedAt: new Date().toISOString(),
-                });
-                await archiveCard(t, client);
-                return t.closePopup();
-              } catch (e) {
-                console.error("Pause failed:", e);
-              }
-            },
-          };
-        });
+        function getPauseItems(t) {
+          var now = new Date();
+          // ... your existing msFrom, nextDay, daysFrom functions ...
+
+          var options = [
+            // ... your existing options array ...
+          ];
+
+          return options.map(function (opt) {
+            return {
+              text: opt.text,
+              callback: function (t) {
+                // Return Promise - Trello handles it
+                return (async function () {
+                  try {
+                    const client = await t.getRestApi();
+                    const isAuthorized = await client.isAuthorized();
+                    if (!isAuthorized)
+                      await client.authorize({ scope: "read,write" });
+
+                    const pauseUntil = opt.date.toISOString();
+                    await t.set("card", "shared", {
+                      paused: true,
+                      pauseUntil: pauseUntil,
+                      pausedAt: new Date().toISOString(),
+                    });
+                    const card = await t.card("id");
+                    await client.put(`cards/${card.id}`, { closed: true });
+                    return t.closePopup();
+                  } catch (e) {
+                    console.error("Pause error:", e);
+                    // Don't close popup on error so user sees it
+                  }
+                })();
+              },
+            };
+          });
+        }
       }
 
       window.TrelloPowerUp.initialize(
@@ -122,19 +140,24 @@
                     {
                       icon: ICON,
                       text: "Resume Card",
-                      callback: async function (t) {
-                        try {
-                          const client = await getApiClient(t);
-                          await unarchiveCard(t, client);
-                          await t.set("card", "shared", {
-                            paused: false,
-                            pauseUntil: null,
-                            pausedAt: null,
-                          });
-                          return t.closePopup();
-                        } catch (e) {
-                          console.error("Resume failed:", e);
-                        }
+                      callback: function (t) {
+                        return (async function () {
+                          try {
+                            const client = await t.getRestApi();
+                            const isAuthorized = await client.isAuthorized();
+                            if (!isAuthorized)
+                              await client.authorize({ scope: "read,write" });
+                            await unarchiveCard(t, client); // Your helper function
+                            await t.set("card", "shared", {
+                              paused: false,
+                              pauseUntil: null,
+                              pausedAt: null,
+                            });
+                            return t.closePopup();
+                          } catch (e) {
+                            console.error("Resume error:", e);
+                          }
+                        })();
                       },
                     },
                   ];
