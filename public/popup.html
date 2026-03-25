@@ -100,14 +100,17 @@
       function getVerifyToken(t) {
         return t.get("member", "private", "token").then(function (token) {
           console.log("TOKEN:", token);
-          if (!token) {
-            return t.popup({
+
+          if (token) return token;
+
+          return t
+            .popup({
               url: "./authorize.html",
               height: 140,
-              resizable: false,
+            })
+            .then(function () {
+              return t.get("member", "private", "token");
             });
-          }
-          return token;
         });
       }
 
