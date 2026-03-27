@@ -142,7 +142,10 @@
                     return fetch("/api/card", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ cardId: card.id, closed: true }),
+                      body: JSON.stringify({
+                        cardId: card.id,
+                        closed: newPausedState,
+                      }),
                     });
                   })
                   .then(function () {
