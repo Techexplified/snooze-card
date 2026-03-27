@@ -93,79 +93,68 @@
     </div>
 
     <script>
-      var t = TrelloPowerUp.iframe({
-        appKey: "add761039ac8e9e90f29945c53c99805",
-        appName: "Pause Card",
-      });
+      var t = TrelloPowerUp.iframe();
 
-      async function getApiClient() {
-        const client = await t.getRestApi(); // FIXED: getRestApi()
-        const isAuthorized = await client.isAuthorized();
-        if (!isAuthorized) {
-          await client.authorize({ scope: "read,write" });
-        }
-        return client;
-      }
+      t.render(function () {
+        var btn = document.getElementById("btn");
+        var msg = document.getElementById("msg");
+        var title = document.getElementById("title");
+        var iconWrap = document.getElementById("iconWrap");
+        var iconImg = document.getElementById("iconImg");
 
-      async function togglePause() {
-        try {
-          const currentPaused = await t.get("card", "shared", "paused");
-          const newPausedState = !currentPaused;
-          const client = await getApiClient(); // Now uses correct method + auth
+        t.context().then(function (ctx) {
+          if (!ctx.card) {
+            msg.innerHTML =
+              "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
+            btn.style.display = "none";
+            return;
+          }
 
-          const card = await t.card("id");
-          await client.put(`cards/${card.id}`, { closed: newPausedState });
+          t.get("card", "shared", "paused").then(function (paused) {
+            // Update icon
+            iconImg.src = paused
+              ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
+              : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
+            iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
 
-          await t.set("card", "shared", {
-            paused: newPausedState,
-            ...(newPausedState
-              ? {
-                  pauseUntil: new Date(
-                    Date.now() + 24 * 60 * 60 * 1000,
-                  ).toISOString(),
-                  pausedAt: new Date().toISOString(),
-                }
-              : { pauseUntil: null, pausedAt: null }),
+            // Update title
+            title.textContent = paused ? "Resume Card" : "Pause Card";
+
+            // Update message
+            msg.textContent = paused
+              ? "This card is currently paused. Click below to resume."
+              : "Pause this card to temporarily hide it from the board.";
+
+            // Update button
+            btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
+            btn.className = paused ? "resume" : "";
+            btn.style.display = "block";
+
+            btn.onclick = function () {
+              t.get("card", "shared", "paused").then(function (currentPaused) {
+                var newPausedState = !currentPaused;
+
+                return t
+                  .card("id")
+                  .then(function (card) {
+                    // Archive if we are pausing, Un-archive if we are resuming
+                    // ✅ AFTER — calls your secure proxy
+                    return fetch("/api/card", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ cardId: card.id, closed: true }),
+                    });
+                  })
+                  .then(function () {
+                    return t.set("card", "shared", "paused", newPausedState);
+                  })
+                  .then(function () {
+                    t.closePopup();
+                  });
+              });
+            };
           });
-
-          t.closePopup();
-        } catch (e) {
-          console.error("Toggle failed:", e);
-        }
-      }
-
-      t.render(async function () {
-        const ctx = await t.context();
-        if (!ctx.card) {
-          document.getElementById("msg").innerHTML =
-            "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
-          document.getElementById("btn").style.display = "none";
-          return;
-        }
-
-        const paused = await t.get("card", "shared", "paused");
-        const btn = document.getElementById("btn");
-        const msg = document.getElementById("msg");
-        const title = document.getElementById("title");
-        const iconWrap = document.getElementById("iconWrap");
-        const iconImg = document.getElementById("iconImg");
-
-        iconImg.src = paused
-          ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
-          : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
-        iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
-
-        title.textContent = paused ? "Resume Card" : "Pause Card";
-
-        msg.textContent = paused
-          ? "This card is currently paused. Click below to resume."
-          : "Pause this card to temporarily hide it from the board.";
-
-        btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
-        btn.className = paused ? "resume" : "";
-        btn.style.display = "block";
-
-        btn.onclick = togglePause;
+        });
       });
     </script>
   </body>

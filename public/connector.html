@@ -24,25 +24,6 @@
         });
       }
 
-      async function getApiClient(t) {
-        const client = await t.getRestApi();
-        const isAuthorized = await client.isAuthorized();
-        if (!isAuthorized) {
-          await client.authorize({ scope: "read,write" });
-        }
-        return client;
-      }
-
-      async function archiveCard(t, client) {
-        const card = await t.card("id");
-        await client.put(`cards/${card.id}`, { closed: true });
-      }
-
-      async function unarchiveCard(t, client) {
-        const card = await t.card("id");
-        await client.put(`cards/${card.id}`, { closed: false });
-      }
-
       function getPauseItems(t) {
         var now = new Date();
 
@@ -65,7 +46,7 @@
           { text: "In 4 hours", date: msFrom(4 * 60 * 60 * 1000) },
           { text: "Tomorrow morning", date: nextDay(9) },
           { text: "Tomorrow afternoon", date: nextDay(14) },
-          { text: "In 1 days", date: daysFrom(1) },
+          { text: "In 1 day", date: daysFrom(1) },
           { text: "In 2 days", date: daysFrom(2) },
           { text: "In 4 days", date: daysFrom(4) },
           { text: "In 1 week", date: daysFrom(7) },
@@ -73,144 +54,147 @@
           { text: "In 1 month", date: daysFrom(30) },
         ];
 
-        function getPauseItems(t) {
-          var now = new Date();
-          // ... your existing msFrom, nextDay, daysFrom functions ...
+        return options.map(function (opt) {
+          return {
+            text: opt.text,
+            callback: function (t) {
+              var pauseUntil = opt.date.toISOString();
 
-          var options = [
-            // ... your existing options array ...
-          ];
-
-          return options.map(function (opt) {
-            return {
-              text: opt.text,
-              callback: function (t) {
-                // Return Promise - Trello handles it
-                return (async function () {
-                  try {
-                    const client = await t.getRestApi();
-                    const isAuthorized = await client.isAuthorized();
-                    if (!isAuthorized)
-                      await client.authorize({ scope: "read,write" });
-
-                    const pauseUntil = opt.date.toISOString();
-                    await t.set("card", "shared", {
-                      paused: true,
-                      pauseUntil: pauseUntil,
-                      pausedAt: new Date().toISOString(),
-                    });
-                    const card = await t.card("id");
-                    await client.put(`cards/${card.id}`, { closed: true });
-                    return t.closePopup();
-                  } catch (e) {
-                    console.error("Pause error:", e);
-                    // Don't close popup on error so user sees it
-                  }
-                })();
-              },
-            };
-          });
-        }
+              return t
+                .set("card", "shared", {
+                  paused: true,
+                  pauseUntil: pauseUntil,
+                  pausedAt: new Date().toISOString(),
+                })
+                .then(function () {
+                  return t.card("id");
+                })
+                .then(function (card) {
+                  // This is the REST API call to Archive (closed=true)
+                  // ✅ AFTER — calls your secure proxy
+                  return fetch("/api/card", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ cardId: card.id, closed: true }),
+                  });
+                })
+                .then(function () {
+                  return t.closePopup();
+                });
+            },
+          };
+        });
       }
 
-      window.TrelloPowerUp.initialize(
-        {
-          "board-buttons": function (t) {
-            return [
-              {
-                text: "Pause Card",
-                icon: { dark: ICON, light: ICON },
-                callback: function (t) {
-                  return t.popup({
-                    title: "Pause Card",
-                    url: t.signUrl("./popup.html"),
-                    height: 220,
-                  });
-                },
+      window.TrelloPowerUp.initialize({
+        "board-buttons": function (t) {
+          return [
+            {
+              text: "Pause Card",
+              icon: { dark: ICON, light: ICON },
+              callback: function (t) {
+                return t.popup({
+                  title: "Pause Card",
+                  url: t.signUrl("./popup.html"),
+                  height: 220,
+                });
               },
-            ];
-          },
+            },
+          ];
+        },
 
-          "card-buttons": function (t) {
-            return t
-              .get("card", "shared", "paused", false)
-              .then(function (paused) {
-                if (paused) {
-                  return [
-                    {
-                      icon: ICON,
-                      text: "Resume Card",
-                      callback: function (t) {
-                        // Direct resume, no popup
-                        return t.popup({
-                          // Use popup.html for resume too
-                          title: "Resume Card",
-                          url: t.signUrl("./popup.html"),
-                          height: 220,
-                        });
-                      },
-                    },
-                  ];
-                }
+        "card-buttons": function (t) {
+          return t
+            .get("card", "shared", "paused", false)
+            .then(function (paused) {
+              if (paused) {
                 return [
                   {
                     icon: ICON,
-                    text: "Pause Card",
+                    text: "Resume Card",
                     callback: function (t) {
-                      return t.popup({
-                        title: "Pause Card",
-                        url: t.signUrl("./popup.html"),
-                        height: 220,
-                      });
+                      return t
+                        .card("id")
+                        .then(function (card) {
+                          // This is the REST API call to Un-archive (closed=false)
+                          // ✅ AFTER — calls your secure proxy
+                          return fetch("/api/card", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              cardId: card.id,
+                              closed: true,
+                            }),
+                          });
+                        })
+                        .then(function () {
+                          return t.set("card", "shared", {
+                            paused: false,
+                            pauseUntil: null,
+                            pausedAt: null,
+                          });
+                        })
+                        .then(function () {
+                          return t.closePopup();
+                        });
                     },
                   },
                 ];
-              });
-          },
+              }
 
-          "card-back-section": function (t) {
-            return t
-              .get("card", "shared", "paused", false)
-              .then(function (paused) {
-                if (!paused) return null;
-                return {
-                  title: "Card Paused Until",
+              return [
+                {
                   icon: ICON,
-                  content: {
-                    type: "iframe",
-                    url: t.signUrl("./section.html"),
-                    height: 70,
+                  text: "Pause Card",
+                  callback: function (t) {
+                    return t.popup({
+                      title: "Pause Until",
+                      items: getPauseItems(t),
+                    });
                   },
-                };
-              });
-          },
+                },
+              ];
+            });
+        },
 
-          "card-detail-badges": function (t) {
-            return t
-              .get("card", "shared", "paused", false)
-              .then(function (paused) {
-                if (!paused) return [];
-                return t
-                  .get("card", "shared", "pauseUntil")
-                  .then(function (pauseUntil) {
-                    return [
-                      {
-                        icon: ICON,
-                        title: "Card Paused Until",
-                        text: pauseUntil ? formatDate(pauseUntil) : "Paused",
-                        color: "blue",
-                      },
-                    ];
-                  });
-              });
-          },
+        "card-back-section": function (t) {
+          return t
+            .get("card", "shared", "paused", false)
+            .then(function (paused) {
+              if (!paused) return null;
+              return {
+                title: "Card Paused Until",
+                icon: ICON,
+                content: {
+                  type: "iframe",
+                  url: t.signUrl("./section.html"),
+                  height: 70,
+                },
+              };
+            });
         },
-        {
-          appKey: "add761039ac8e9e90f29945c53c99805",
-          appName: "Pause Card",
-          appAuthor: "Explified",
+
+        "card-detail-badges": function (t) {
+          return t
+            .get("card", "shared", "paused", false)
+            .then(function (paused) {
+              if (!paused) return [];
+              return t
+                .get("card", "shared", "pauseUntil")
+                .then(function (pauseUntil) {
+                  return [
+                    {
+                      icon: ICON,
+                      title: "Card Paused Until",
+                      text: pauseUntil ? formatDate(pauseUntil) : "Paused",
+                      color: "blue",
+                    },
+                  ];
+                });
+            });
         },
-      );
+      });
     </script>
   </body>
 </html>
+<!-- correction -->
