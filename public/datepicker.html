@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Change Snooze Time</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #1e1f26;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #e2e4ea;
+        padding: 16px;
+        font-size: 14px;
+      }
+
+      /* ── Date & Time row ── */
+      .row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field.date {
+        flex: 1.3;
+      }
+      .field.time {
+        flex: 1;
+      }
+
+      label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #8c96a8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      input[type="text"],
+      input[type="time"] {
+        background: #2d2f3a;
+        border: 1px solid #3d4050;
+        border-radius: 6px;
+        color: #e2e4ea;
+        font-size: 14px;
+        padding: 8px 10px;
+        width: 100%;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="text"]:focus,
+      input[type="time"]:focus {
+        border-color: #579dff;
+      }
+
+      /* ── Calendar ── */
+      .calendar {
+        background: #2d2f3a;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 14px;
+      }
+
+      .cal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .cal-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #e2e4ea;
+      }
+
+      .cal-nav {
+        background: none;
+        border: none;
+        color: #8c96a8;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition:
+          background 0.15s,
+          color 0.15s;
+        font-family: inherit;
+      }
+
+      .cal-nav:hover {
+        background: #3d4050;
+        color: #e2e4ea;
+      }
+
+      .cal-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+
+      .cal-day-name {
+        text-align: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #8c96a8;
+        padding: 4px 0;
+      }
+
+      .cal-day {
+        text-align: center;
+        padding: 6px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        color: #c5cad6;
+        transition:
+          background 0.12s,
+          color 0.12s;
+        user-select: none;
+      }
+
+      .cal-day:hover:not(.empty):not(.past) {
+        background: #3d4050;
+        color: #e2e4ea;
+      }
+
+      .cal-day.today {
+        color: #579dff;
+        font-weight: 700;
+      }
+
+      .cal-day.selected {
+        background: #579dff;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .cal-day.past {
+        color: #4a4f60;
+        cursor: default;
+      }
+
+      .cal-day.empty {
+        cursor: default;
+      }
+
+      /* ── Snooze button ── */
+      .snooze-btn {
+        width: auto;
+        padding: 9px 22px;
+        background: #579dff;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+        margin-bottom: 12px;
+        font-family: inherit;
+      }
+
+      .snooze-btn:hover {
+        background: #4a8fe0;
+      }
+
+      .snooze-btn:disabled {
+        background: #3d4050;
+        color: #6b7280;
+        cursor: not-allowed;
+      }
+
+      /* ── Helper text ── */
+      .hint {
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.5;
+      }
+
+      hr {
+        border: none;
+        border-top: 1px solid #3d4050;
+        margin-bottom: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Date + Time inputs -->
+    <div class="row">
+      <div class="field date">
+        <label>Date</label>
+        <input type="text" id="dateInput" placeholder="MM/DD/YYYY" />
+      </div>
+      <div class="field time">
+        <label>Time</label>
+        <input type="time" id="timeInput" value="12:00" />
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="calendar">
+      <div class="cal-header">
+        <button class="cal-nav" id="prevBtn">Prev</button>
+        <span class="cal-title" id="calTitle"></span>
+        <button class="cal-nav" id="nextBtn">Next</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- Snooze button -->
+    <button class="snooze-btn" id="snoozeBtn">Snooze</button>
+
+    <hr />
+
+    <p class="hint">
+      Snoozing archives the card until the specified date, when it will be
+      brought back to the board.
+    </p>
+
+    <script>
+      var t = TrelloPowerUp.iframe();
+
+      var MONTHS = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      var DAY_NAMES = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // State
+      var viewYear = today.getFullYear();
+      var viewMonth = today.getMonth();
+      var selectedDate = new Date(today); // default = today
+
+      // ── Helpers ──────────────────────────────────────────
+      function pad(n) {
+        return n < 10 ? "0" + n : "" + n;
+      }
+
+      function toDateString(d) {
+        return (
+          pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + "/" + d.getFullYear()
+        );
+      }
+
+      function syncDateInput() {
+        document.getElementById("dateInput").value = toDateString(selectedDate);
+      }
+
+      // ── Calendar renderer ─────────────────────────────────
+      function renderCalendar() {
+        document.getElementById("calTitle").textContent =
+          MONTHS[viewMonth] + "  " + viewYear;
+
+        var grid = document.getElementById("calGrid");
+        grid.innerHTML = "";
+
+        // Day name headers
+        DAY_NAMES.forEach(function (n) {
+          var el = document.createElement("div");
+          el.className = "cal-day-name";
+          el.textContent = n;
+          grid.appendChild(el);
+        });
+
+        var firstDay = new Date(viewYear, viewMonth, 1).getDay();
+        var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+        // Empty cells before the 1st
+        for (var i = 0; i < firstDay; i++) {
+          var empty = document.createElement("div");
+          empty.className = "cal-day empty";
+          grid.appendChild(empty);
+        }
+
+        // Day cells
+        for (var d = 1; d <= daysInMonth; d++) {
+          (function (day) {
+            var cellDate = new Date(viewYear, viewMonth, day);
+            var el = document.createElement("div");
+            el.textContent = day;
+
+            var classes = ["cal-day"];
+            if (cellDate < today) {
+              classes.push("past");
+            } else {
+              if (cellDate.getTime() === today.getTime()) classes.push("today");
+              if (
+                selectedDate &&
+                cellDate.getFullYear() === selectedDate.getFullYear() &&
+                cellDate.getMonth() === selectedDate.getMonth() &&
+                cellDate.getDate() === selectedDate.getDate()
+              ) {
+                classes.push("selected");
+              }
+
+              el.addEventListener("click", function () {
+                selectedDate = cellDate;
+                syncDateInput();
+                renderCalendar();
+              });
+            }
+
+            el.className = classes.join(" ");
+            grid.appendChild(el);
+          })(d);
+        }
+
+        syncSnoozeBtn();
+      }
+
+      // ── Navigation ────────────────────────────────────────
+      document.getElementById("prevBtn").addEventListener("click", function () {
+        viewMonth--;
+        if (viewMonth < 0) {
+          viewMonth = 11;
+          viewYear--;
+        }
+        renderCalendar();
+      });
+
+      document.getElementById("nextBtn").addEventListener("click", function () {
+        viewMonth++;
+        if (viewMonth > 11) {
+          viewMonth = 0;
+          viewYear++;
+        }
+        renderCalendar();
+      });
+
+      // ── Date text input sync ──────────────────────────────
+      document
+        .getElementById("dateInput")
+        .addEventListener("change", function () {
+          var parts = this.value.split("/");
+          if (parts.length === 3) {
+            var m = parseInt(parts[0], 10) - 1;
+            var d = parseInt(parts[1], 10);
+            var y = parseInt(parts[2], 10);
+            var parsed = new Date(y, m, d);
+            parsed.setHours(0, 0, 0, 0);
+            if (!isNaN(parsed) && parsed >= today) {
+              selectedDate = parsed;
+              viewYear = parsed.getFullYear();
+              viewMonth = parsed.getMonth();
+              renderCalendar();
+            }
+          }
+        });
+
+      // ── Snooze button state ───────────────────────────────
+      function syncSnoozeBtn() {
+        var btn = document.getElementById("snoozeBtn");
+        btn.disabled = !selectedDate;
+      }
+
+      // ── Snooze action ─────────────────────────────────────
+      document
+        .getElementById("snoozeBtn")
+        .addEventListener("click", function () {
+          if (!selectedDate) return;
+
+          var timeVal = document.getElementById("timeInput").value || "12:00";
+          var parts = timeVal.split(":");
+          var hours = parseInt(parts[0], 10);
+          var minutes = parseInt(parts[1], 10);
+
+          var pauseUntil = new Date(selectedDate);
+          pauseUntil.setHours(hours, minutes, 0, 0);
+
+          if (pauseUntil <= new Date()) {
+            alert("Please choose a future date and time.");
+            return;
+          }
+
+          t.set("card", "shared", {
+            paused: true,
+            pauseUntil: pauseUntil.toISOString(),
+            pausedAt: new Date().toISOString(),
+          })
+            .then(function () {
+              return t.card("id");
+            })
+            .then(function (card) {
+              return fetch("/api/card", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cardId: card.id, closed: true }),
+              });
+            })
+            .then(function () {
+              t.closePopup();
+            });
+        });
+
+      // ── Init ──────────────────────────────────────────────
+      // Default time to 12:00 PM tomorrow
+      var tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      selectedDate = tomorrow;
+      viewYear = tomorrow.getFullYear();
+      viewMonth = tomorrow.getMonth();
+
+      renderCalendar();
+      syncDateInput();
+
+      t.render(function () {
+        t.sizeTo(document.body);
+      });
+    </script>
+  </body>
+</html>

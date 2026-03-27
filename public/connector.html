@@ -24,6 +24,28 @@
         });
       }
 
+      function pauseCard(t, pauseUntil) {
+        return t
+          .set("card", "shared", {
+            paused: true,
+            pauseUntil: pauseUntil,
+            pausedAt: new Date().toISOString(),
+          })
+          .then(function () {
+            return t.card("id");
+          })
+          .then(function (card) {
+            return fetch("/api/card", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cardId: card.id, closed: true }),
+            });
+          })
+          .then(function () {
+            return t.closePopup();
+          });
+      }
+
       function getPauseItems(t) {
         var now = new Date();
 
@@ -54,36 +76,30 @@
           { text: "In 1 month", date: daysFrom(30) },
         ];
 
-        return options.map(function (opt) {
-          return {
+        // "Choose Time" is the first item — opens the custom date picker popup
+        var items = [
+          {
+            text: "Choose Time",
+            callback: function (t) {
+              return t.popup({
+                title: "Change Snooze Time",
+                url: t.signUrl("./datepicker.html"),
+                height: 380,
+              });
+            },
+          },
+        ];
+
+        options.forEach(function (opt) {
+          items.push({
             text: opt.text,
             callback: function (t) {
-              var pauseUntil = opt.date.toISOString();
-
-              return t
-                .set("card", "shared", {
-                  paused: true,
-                  pauseUntil: pauseUntil,
-                  pausedAt: new Date().toISOString(),
-                })
-                .then(function () {
-                  return t.card("id");
-                })
-                .then(function (card) {
-                  // This is the REST API call to Archive (closed=true)
-                  // ✅ AFTER — calls your secure proxy
-                  return fetch("/api/card", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cardId: card.id, closed: true }),
-                  });
-                })
-                .then(function () {
-                  return t.closePopup();
-                });
+              return pauseCard(t, opt.date.toISOString());
             },
-          };
+          });
         });
+
+        return items;
       }
 
       window.TrelloPowerUp.initialize({
@@ -116,8 +132,6 @@
                       return t
                         .card("id")
                         .then(function (card) {
-                          // This is the REST API call to Un-archive (closed=false)
-                          // ✅ AFTER — calls your secure proxy
                           return fetch("/api/card", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -197,4 +211,3 @@
     </script>
   </body>
 </html>
-<!-- correction -->
