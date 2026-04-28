@@ -1,16 +1,20 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { cardId, closed } = req.body;
+  const { cardId, closed, token } = req.body;
 
   const API_KEY = process.env.TRELLO_API_KEY;
-  const TOKEN = process.env.TRELLO_TOKEN;
 
-  console.log("API_KEY", API_KEY);
-  console.log("TOKEN", TOKEN);
+  if (!API_KEY) {
+    return res.status(500).json({ error: "Missing API key" });
+  }
 
-  if (!API_KEY || !TOKEN) {
-    return res.status(500).json({ error: "Missing credentials" });
+  // Use the user's own token passed from the frontend.
+  // Fall back to the server token only if none was provided.
+  const TOKEN = token || process.env.TRELLO_TOKEN;
+
+  if (!TOKEN) {
+    return res.status(500).json({ error: "Missing Trello token" });
   }
 
   const trelloRes = await fetch(
