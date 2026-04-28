@@ -111,21 +111,17 @@
           }
 
           t.get("card", "shared", "paused").then(function (paused) {
-            // Update icon
             iconImg.src = paused
               ? "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/play-circle-fill.svg"
               : "https://cdn.jsdelivr.net/npm/bootstrap-icons/icons/pause-circle-fill.svg";
             iconWrap.className = "icon-wrap" + (paused ? " resume" : "");
 
-            // Update title
             title.textContent = paused ? "Resume Card" : "Pause Card";
 
-            // Update message
             msg.textContent = paused
               ? "This card is currently paused. Click below to resume."
               : "Pause this card to temporarily hide it from the board.";
 
-            // Update button
             btn.textContent = paused ? "▶ Resume Card" : "⏸ Pause Card";
             btn.className = paused ? "resume" : "";
             btn.style.display = "block";
@@ -134,17 +130,17 @@
               t.get("card", "shared", "paused").then(function (currentPaused) {
                 var newPausedState = !currentPaused;
 
-                return t
-                  .card("id")
-                  .then(function (card) {
-                    // Archive if we are pausing, Un-archive if we are resuming
-                    // ✅ AFTER — calls your secure proxy
+                return Promise.all([t.card("id"), t.getRestApi().getToken()])
+                  .then(function (results) {
+                    var card = results[0];
+                    var token = results[1];
                     return fetch("/api/card", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         cardId: card.id,
                         closed: newPausedState,
+                        token: token,
                       }),
                     });
                   })

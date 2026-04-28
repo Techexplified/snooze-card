@@ -32,13 +32,19 @@
             pausedAt: new Date().toISOString(),
           })
           .then(function () {
-            return t.card("id");
+            return Promise.all([t.card("id"), t.getRestApi().getToken()]);
           })
-          .then(function (card) {
+          .then(function (results) {
+            var card = results[0];
+            var token = results[1];
             return fetch("/api/card", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ cardId: card.id, closed: true }),
+              body: JSON.stringify({
+                cardId: card.id,
+                closed: true,
+                token: token,
+              }),
             });
           })
           .then(function () {
@@ -76,7 +82,6 @@
           { text: "In 1 month", date: daysFrom(30) },
         ];
 
-        // "Choose Time" is the first item — opens the custom date picker popup
         var items = [
           {
             text: "Choose Time",
@@ -102,112 +107,123 @@
         return items;
       }
 
-      window.TrelloPowerUp.initialize({
-        "board-buttons": function (t) {
-          return [
-            {
-              text: "Pause Card",
-              icon: { dark: ICON, light: ICON },
-              callback: function (t) {
-                return t.popup({
-                  title: "Pause Card",
-                  url: t.signUrl("./popup.html"),
-                  height: 220,
-                });
+      window.TrelloPowerUp.initialize(
+        {
+          "board-buttons": function (t) {
+            return [
+              {
+                text: "Pause Card",
+                icon: { dark: ICON, light: ICON },
+                callback: function (t) {
+                  return t.popup({
+                    title: "Pause Card",
+                    url: t.signUrl("./popup.html"),
+                    height: 220,
+                  });
+                },
               },
-            },
-          ];
-        },
+            ];
+          },
 
-        "card-buttons": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (paused) {
-                return [
-                  {
-                    icon: ICON,
-                    text: "Resume Card",
-                    callback: function (t) {
-                      return t
-                        .card("id")
-                        .then(function (card) {
-                          return fetch("/api/card", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              cardId: card.id,
-                              closed: false,
-                            }),
-                          });
-                        })
-                        .then(function () {
-                          return t.set("card", "shared", {
-                            paused: false,
-                            pauseUntil: null,
-                            pausedAt: null,
-                          });
-                        })
-                        .then(function () {
-                          return t.closePopup();
-                        });
-                    },
-                  },
-                ];
-              }
-
-              return [
-                {
-                  icon: ICON,
-                  text: "Pause Card",
-                  callback: function (t) {
-                    return t.popup({
-                      title: "Pause Until",
-                      items: getPauseItems(t),
-                    });
-                  },
-                },
-              ];
-            });
-        },
-
-        "card-back-section": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (!paused) return null;
-              return {
-                title: "Card Paused Until",
-                icon: ICON,
-                content: {
-                  type: "iframe",
-                  url: t.signUrl("./section.html"),
-                  height: 70,
-                },
-              };
-            });
-        },
-
-        "card-detail-badges": function (t) {
-          return t
-            .get("card", "shared", "paused", false)
-            .then(function (paused) {
-              if (!paused) return [];
-              return t
-                .get("card", "shared", "pauseUntil")
-                .then(function (pauseUntil) {
+          "card-buttons": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (paused) {
                   return [
                     {
                       icon: ICON,
-                      title: "Card Paused Until",
-                      text: pauseUntil ? formatDate(pauseUntil) : "Paused",
-                      color: "blue",
+                      text: "Resume Card",
+                      callback: function (t) {
+                        return Promise.all([
+                          t.card("id"),
+                          t.getRestApi().getToken(),
+                        ])
+                          .then(function (results) {
+                            var card = results[0];
+                            var token = results[1];
+                            return fetch("/api/card", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                cardId: card.id,
+                                closed: false,
+                                token: token,
+                              }),
+                            });
+                          })
+                          .then(function () {
+                            return t.set("card", "shared", {
+                              paused: false,
+                              pauseUntil: null,
+                              pausedAt: null,
+                            });
+                          })
+                          .then(function () {
+                            return t.closePopup();
+                          });
+                      },
                     },
                   ];
-                });
-            });
+                }
+
+                return [
+                  {
+                    icon: ICON,
+                    text: "Pause Card",
+                    callback: function (t) {
+                      return t.popup({
+                        title: "Pause Until",
+                        items: getPauseItems(t),
+                      });
+                    },
+                  },
+                ];
+              });
+          },
+
+          "card-back-section": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return null;
+                return {
+                  title: "Card Paused Until",
+                  icon: ICON,
+                  content: {
+                    type: "iframe",
+                    url: t.signUrl("./section.html"),
+                    height: 70,
+                  },
+                };
+              });
+          },
+
+          "card-detail-badges": function (t) {
+            return t
+              .get("card", "shared", "paused", false)
+              .then(function (paused) {
+                if (!paused) return [];
+                return t
+                  .get("card", "shared", "pauseUntil")
+                  .then(function (pauseUntil) {
+                    return [
+                      {
+                        icon: ICON,
+                        title: "Card Paused Until",
+                        text: pauseUntil ? formatDate(pauseUntil) : "Paused",
+                        color: "blue",
+                      },
+                    ];
+                  });
+              });
+          },
         },
-      });
+        {
+          appKey: "YOUR_TRELLO_API_KEY", // 🔴 Replace with your actual Power-Up API key
+          appName: "Pause Card",
+        },
+      );
     </script>
   </body>
 </html>

@@ -20,7 +20,6 @@
         font-size: 14px;
       }
 
-      /* ── Date & Time row ── */
       .row {
         display: flex;
         gap: 12px;
@@ -66,7 +65,6 @@
         border-color: #579dff;
       }
 
-      /* ── Calendar ── */
       .calendar {
         background: #2d2f3a;
         border-radius: 10px;
@@ -158,7 +156,6 @@
         cursor: default;
       }
 
-      /* ── Snooze button ── */
       .snooze-btn {
         width: auto;
         padding: 9px 22px;
@@ -184,7 +181,6 @@
         cursor: not-allowed;
       }
 
-      /* ── Helper text ── */
       .hint {
         font-size: 12px;
         color: #6b7280;
@@ -199,7 +195,6 @@
     </style>
   </head>
   <body>
-    <!-- Date + Time inputs -->
     <div class="row">
       <div class="field date">
         <label>Date</label>
@@ -211,7 +206,6 @@
       </div>
     </div>
 
-    <!-- Calendar -->
     <div class="calendar">
       <div class="cal-header">
         <button class="cal-nav" id="prevBtn">Prev</button>
@@ -221,7 +215,6 @@
       <div class="cal-grid" id="calGrid"></div>
     </div>
 
-    <!-- Snooze button -->
     <button class="snooze-btn" id="snoozeBtn">Pause</button>
 
     <hr />
@@ -253,12 +246,10 @@
       var today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // State
       var viewYear = today.getFullYear();
       var viewMonth = today.getMonth();
-      var selectedDate = new Date(today); // default = today
+      var selectedDate = new Date(today);
 
-      // ── Helpers ──────────────────────────────────────────
       function pad(n) {
         return n < 10 ? "0" + n : "" + n;
       }
@@ -273,7 +264,6 @@
         document.getElementById("dateInput").value = toDateString(selectedDate);
       }
 
-      // ── Calendar renderer ─────────────────────────────────
       function renderCalendar() {
         document.getElementById("calTitle").textContent =
           MONTHS[viewMonth] + "  " + viewYear;
@@ -281,7 +271,6 @@
         var grid = document.getElementById("calGrid");
         grid.innerHTML = "";
 
-        // Day name headers
         DAY_NAMES.forEach(function (n) {
           var el = document.createElement("div");
           el.className = "cal-day-name";
@@ -292,14 +281,12 @@
         var firstDay = new Date(viewYear, viewMonth, 1).getDay();
         var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
-        // Empty cells before the 1st
         for (var i = 0; i < firstDay; i++) {
           var empty = document.createElement("div");
           empty.className = "cal-day empty";
           grid.appendChild(empty);
         }
 
-        // Day cells
         for (var d = 1; d <= daysInMonth; d++) {
           (function (day) {
             var cellDate = new Date(viewYear, viewMonth, day);
@@ -335,7 +322,6 @@
         syncSnoozeBtn();
       }
 
-      // ── Navigation ────────────────────────────────────────
       document.getElementById("prevBtn").addEventListener("click", function () {
         viewMonth--;
         if (viewMonth < 0) {
@@ -354,7 +340,6 @@
         renderCalendar();
       });
 
-      // ── Date text input sync ──────────────────────────────
       document
         .getElementById("dateInput")
         .addEventListener("change", function () {
@@ -374,13 +359,11 @@
           }
         });
 
-      // ── Snooze button state ───────────────────────────────
       function syncSnoozeBtn() {
         var btn = document.getElementById("snoozeBtn");
         btn.disabled = !selectedDate;
       }
 
-      // ── Snooze action ─────────────────────────────────────
       document
         .getElementById("snoozeBtn")
         .addEventListener("click", function () {
@@ -405,13 +388,19 @@
             pausedAt: new Date().toISOString(),
           })
             .then(function () {
-              return t.card("id");
+              return Promise.all([t.card("id"), t.getRestApi().getToken()]);
             })
-            .then(function (card) {
+            .then(function (results) {
+              var card = results[0];
+              var token = results[1];
               return fetch("/api/card", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ cardId: card.id, closed: true }),
+                body: JSON.stringify({
+                  cardId: card.id,
+                  closed: true,
+                  token: token,
+                }),
               });
             })
             .then(function () {
@@ -419,8 +408,7 @@
             });
         });
 
-      // ── Init ──────────────────────────────────────────────
-      // Default time to 12:00 PM tomorrow
+      // Default to tomorrow at 12:00 PM
       var tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       selectedDate = tomorrow;
