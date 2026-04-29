@@ -24,6 +24,36 @@
         });
       }
 
+      // Gets the user's token, triggering OAuth if they haven't authorized yet
+      function getToken(t) {
+        return t
+          .getRestApi()
+          .getToken()
+          .then(function (token) {
+            if (token) return token;
+            return t.getRestApi().authorize({ scope: "read,write" });
+          });
+      }
+
+      function archiveCard(cardId, closed, token) {
+        return fetch("/api/card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cardId: cardId,
+            closed: closed,
+            token: token,
+          }),
+        }).then(function (res) {
+          if (!res.ok) {
+            return res.json().then(function (err) {
+              throw new Error(err.error || "Trello API error");
+            });
+          }
+          return res.json();
+        });
+      }
+
       function pauseCard(t, pauseUntil) {
         return t
           .set("card", "shared", {
@@ -32,20 +62,10 @@
             pausedAt: new Date().toISOString(),
           })
           .then(function () {
-            return Promise.all([t.card("id"), t.getRestApi().getToken()]);
+            return Promise.all([t.card("id"), getToken(t)]);
           })
           .then(function (results) {
-            var card = results[0];
-            var token = results[1];
-            return fetch("/api/card", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                cardId: card.id,
-                closed: true,
-                token: token,
-              }),
-            });
+            return archiveCard(results[0].id, true, results[1]);
           })
           .then(function () {
             return t.closePopup();
@@ -135,22 +155,13 @@
                       icon: ICON,
                       text: "Resume Card",
                       callback: function (t) {
-                        return Promise.all([
-                          t.card("id"),
-                          t.getRestApi().getToken(),
-                        ])
+                        return Promise.all([t.card("id"), getToken(t)])
                           .then(function (results) {
-                            var card = results[0];
-                            var token = results[1];
-                            return fetch("/api/card", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                cardId: card.id,
-                                closed: false,
-                                token: token,
-                              }),
-                            });
+                            return archiveCard(
+                              results[0].id,
+                              false,
+                              results[1],
+                            );
                           })
                           .then(function () {
                             return t.set("card", "shared", {
