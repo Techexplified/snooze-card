@@ -24,63 +24,31 @@
         });
       }
 
-      // Helper function to handle authorization and API call
-      function verifyAuthAndExecute(t, callback) {
-        return t
-          .getRestApi()
-          .isAuthorized()
-          .then(function (isAuthorized) {
-            if (isAuthorized) {
-              return callback();
-            } else {
-              // If not authorized, show the Trello auth popup
-              return t.getRestApi().authorize();
-            }
-          });
-      }
-
       function pauseCard(t, pauseUntil) {
-        // 1. Check if authorized first
         return t
-          .getRestApi()
-          .isAuthorized()
-          .then(function (isAuthorized) {
-            if (!isAuthorized) {
-              // 2. If not authorized, trigger the Trello Auth popup
-              // This MUST be returned so Trello handles the window properly
-              return t.getRestApi().authorize();
-            }
-
-            // 3. If authorized, proceed with the logic
-            return t
-              .set("card", "shared", {
-                paused: true,
-                pauseUntil: pauseUntil,
-                pausedAt: new Date().toISOString(),
-              })
-              .then(function () {
-                return Promise.all([t.card("id"), t.getRestApi().getToken()]);
-              })
-              .then(function (results) {
-                var card = results[0];
-                var token = results[1];
-
-                return fetch("/api/card", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    cardId: card.id,
-                    closed: true,
-                    token: token,
-                  }),
-                });
-              })
-              .then(function () {
-                return t.closePopup();
-              });
+          .set("card", "shared", {
+            paused: true,
+            pauseUntil: pauseUntil,
+            pausedAt: new Date().toISOString(),
           })
-          .catch(function (err) {
-            console.error("Auth or API Error:", err);
+          .then(function () {
+            return Promise.all([t.card("id"), t.getRestApi().getToken()]);
+          })
+          .then(function (results) {
+            var card = results[0];
+            var token = results[1];
+            return fetch("/api/card", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                cardId: card.id,
+                closed: true,
+                token: token,
+              }),
+            });
+          })
+          .then(function () {
+            return t.closePopup();
           });
       }
 
