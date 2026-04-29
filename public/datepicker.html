@@ -369,42 +369,43 @@
         .addEventListener("click", function () {
           if (!selectedDate) return;
 
-          var timeVal = document.getElementById("timeInput").value || "12:00";
-          var parts = timeVal.split(":");
-          var hours = parseInt(parts[0], 10);
-          var minutes = parseInt(parts[1], 10);
+          t.getRestApi()
+            .isAuthorized()
+            .then(function (auth) {
+              if (!auth) return t.getRestApi().authorize();
 
-          var pauseUntil = new Date(selectedDate);
-          pauseUntil.setHours(hours, minutes, 0, 0);
+              var timeVal =
+                document.getElementById("timeInput").value || "12:00";
+              var parts = timeVal.split(":");
+              var hours = parseInt(parts[0], 10);
+              var minutes = parseInt(parts[1], 10);
 
-          if (pauseUntil <= new Date()) {
-            alert("Please choose a future date and time.");
-            return;
-          }
+              var pauseUntil = new Date(selectedDate);
+              pauseUntil.setHours(hours, minutes, 0, 0);
 
-          t.set("card", "shared", {
-            paused: true,
-            pauseUntil: pauseUntil.toISOString(),
-            pausedAt: new Date().toISOString(),
-          })
-            .then(function () {
-              return Promise.all([t.card("id"), t.getRestApi().getToken()]);
-            })
-            .then(function (results) {
-              var card = results[0];
-              var token = results[1];
-              return fetch("/api/card", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  cardId: card.id,
-                  closed: true,
-                  token: token,
-                }),
-              });
-            })
-            .then(function () {
-              t.closePopup();
+              return t
+                .set("card", "shared", {
+                  paused: true,
+                  pauseUntil: pauseUntil.toISOString(),
+                  pausedAt: new Date().toISOString(),
+                })
+                .then(function () {
+                  return Promise.all([t.card("id"), t.getRestApi().getToken()]);
+                })
+                .then(function (results) {
+                  return fetch("/api/card", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      cardId: results[0].id,
+                      closed: true,
+                      token: results[1],
+                    }),
+                  });
+                })
+                .then(function () {
+                  t.closePopup();
+                });
             });
         });
 

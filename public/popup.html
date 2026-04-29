@@ -127,30 +127,46 @@
             btn.style.display = "block";
 
             btn.onclick = function () {
-              t.get("card", "shared", "paused").then(function (currentPaused) {
-                var newPausedState = !currentPaused;
+              // Use the same authorization check logic
+              t.getRestApi()
+                .isAuthorized()
+                .then(function (auth) {
+                  if (!auth) return t.getRestApi().authorize();
 
-                return Promise.all([t.card("id"), t.getRestApi().getToken()])
-                  .then(function (results) {
-                    var card = results[0];
-                    var token = results[1];
-                    return fetch("/api/card", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        cardId: card.id,
-                        closed: newPausedState,
-                        token: token,
-                      }),
-                    });
-                  })
-                  .then(function () {
-                    return t.set("card", "shared", "paused", newPausedState);
-                  })
-                  .then(function () {
-                    t.closePopup();
-                  });
-              });
+                  t.get("card", "shared", "paused").then(
+                    function (currentPaused) {
+                      var newPausedState = !currentPaused;
+                      return Promise.all([
+                        t.card("id"),
+                        t.getRestApi().getToken(),
+                      ])
+                        .then(function (results) {
+                          var card = results[0];
+                          var token = results[1];
+                          return fetch("/api/card", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              cardId: card.id,
+                              closed: newPausedState,
+                              token: token,
+                            }),
+                          });
+                        })
+                        .then(function () {
+                          return t.set(
+                            "card",
+                            "shared",
+                            "paused",
+                            newPausedState,
+                          );
+                        })
+                        .then(function () {
+                          t.closePopup();
+                        });
+                    },
+                  );
+                });
             };
           });
         });

@@ -24,32 +24,49 @@
         });
       }
 
-      function pauseCard(t, pauseUntil) {
+      // Helper function to handle authorization and API call
+      function verifyAuthAndExecute(t, callback) {
         return t
-          .set("card", "shared", {
-            paused: true,
-            pauseUntil: pauseUntil,
-            pausedAt: new Date().toISOString(),
-          })
-          .then(function () {
-            return Promise.all([t.card("id"), t.getRestApi().getToken()]);
-          })
-          .then(function (results) {
-            var card = results[0];
-            var token = results[1];
-            return fetch("/api/card", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                cardId: card.id,
-                closed: true,
-                token: token,
-              }),
-            });
-          })
-          .then(function () {
-            return t.closePopup();
+          .getRestApi()
+          .isAuthorized()
+          .then(function (isAuthorized) {
+            if (isAuthorized) {
+              return callback();
+            } else {
+              // If not authorized, show the Trello auth popup
+              return t.getRestApi().authorize();
+            }
           });
+      }
+
+      function pauseCard(t, pauseUntil) {
+        return verifyAuthAndExecute(t, function () {
+          return t
+            .set("card", "shared", {
+              paused: true,
+              pauseUntil: pauseUntil,
+              pausedAt: new Date().toISOString(),
+            })
+            .then(function () {
+              return Promise.all([t.card("id"), t.getRestApi().getToken()]);
+            })
+            .then(function (results) {
+              var card = results[0];
+              var token = results[1];
+              return fetch("/api/card", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  cardId: card.id,
+                  closed: true,
+                  token: token, // This is now guaranteed to be the USER'S token
+                }),
+              });
+            })
+            .then(function () {
+              return t.closePopup();
+            });
+        });
       }
 
       function getPauseItems(t) {
