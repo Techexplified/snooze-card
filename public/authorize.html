@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <script>
+      var t = TrelloPowerUp.iframe();
+      var APP_KEY = "add761039ac8e9e90f29945c53c99805";
+
+      // Open Trello's OAuth page in a new tab
+      var authUrl =
+        "https://trello.com/1/authorize" +
+        "?expiration=never" +
+        "&name=Pause%20Card" +
+        "&scope=read,write" +
+        "&response_type=token" +
+        "&key=" +
+        APP_KEY +
+        "&callback_method=postMessage" +
+        "&return_url=" +
+        encodeURIComponent(window.location.origin + "/token-handler.html");
+
+      window.open(authUrl, "_blank");
+
+      // Listen for the token posted back from token-handler.html
+      window.addEventListener("message", function (e) {
+        var token = e.data;
+        if (token && typeof token === "string" && token.length > 10) {
+          t.set("member", "private", "token", token).then(function () {
+            t.closePopup();
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // Trello puts the token in the URL hash after OAuth
+      var token = window.location.hash.replace("#token=", "");
+      if (token && window.opener) {
+        window.opener.postMessage(token, "*");
+        window.close();
+      }
+    </script>
+  </body>
+</html>
