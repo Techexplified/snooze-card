@@ -134,15 +134,18 @@
                   .then(function (results) {
                     var card = results[0];
                     var token = results[1];
-                    return fetch("/api/card", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        cardId: card.id,
-                        closed: newPausedState,
-                        token: token,
-                      }),
-                    });
+                    return fetch(
+                      "https://snooze-card-trello.vercel.app/api/card",
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          cardId: card.id,
+                          closed: newPausedState,
+                          token: token,
+                        }),
+                      },
+                    );
                   })
                   .then(function () {
                     return t.set("card", "shared", "paused", newPausedState);

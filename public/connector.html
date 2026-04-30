@@ -45,7 +45,7 @@
       }
 
       function archiveCard(cardId, closed, token) {
-        return fetch("/api/card", {
+        return fetch("https://snooze-card-trello.vercel.app/api/card", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
