@@ -112,8 +112,6 @@
       authBtn.addEventListener("click", function () {
         authBtn.disabled = true;
         authBtn.textContent = "Opening Trello...";
-        status.textContent = "Complete the authorization in the new tab.";
-        status.className = "status";
 
         var returnUrl =
           "https://snooze-card-trello.vercel.app/token-handler.html";
@@ -126,8 +124,8 @@
           "&key=" +
           APP_KEY +
           "&return_url=" +
-          encodeURIComponent(returnUrl) +
-          "&callback_method=postMessage";
+          encodeURIComponent(returnUrl);
+        // REMOVED: callback_method=postMessage to prevent Trello internal conflicts with return_url
 
         window.open(authUrl, "_blank", "width=520,height=620");
       });

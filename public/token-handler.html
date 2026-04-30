@@ -44,16 +44,21 @@
       function handleToken(token) {
         document.getElementById("icon").textContent = "✓";
         document.getElementById("msg").textContent = "Authorized successfully!";
-        document.getElementById("sub").textContent = "You can close this tab.";
 
-        // Post back to authorize.html which opened this window
         if (window.opener) {
-          window.opener.postMessage({ token: token }, "*");
+          // Explicitly send to the opener
+          window.opener.postMessage(
+            { token: token },
+            "https://snooze-card-trello.vercel.app",
+          );
+        } else {
+          // Fallback for some mobile browsers
+          localStorage.setItem("trello_token", token);
         }
 
         setTimeout(function () {
           window.close();
-        }, 1500);
+        }, 1000);
       }
 
       // Case 1: Token in URL hash (#token=xxxx) from return_url redirect
