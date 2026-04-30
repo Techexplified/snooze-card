@@ -58,6 +58,11 @@
       button:hover {
         background: #4a8fe0;
       }
+      button:disabled {
+        background: #3d4050;
+        color: #6b7280;
+        cursor: not-allowed;
+      }
       .status {
         font-size: 12px;
         color: #9ca3af;
@@ -89,30 +94,29 @@
       var authBtn = document.getElementById("authBtn");
       var status = document.getElementById("status");
 
-      // Listen for the token posted back from token-handler.html
+      // Listen for token posted back from token-handler.html
       window.addEventListener("message", function (e) {
-        var data = e.data;
-        if (data && data.token) {
-          status.textContent = "Saving authorization...";
-          status.className = "status";
-          t.set("member", "private", "token", data.token).then(function () {
-            status.textContent = "✓ Authorized successfully!";
-            status.className = "status success";
-            setTimeout(function () {
-              t.closePopup();
-            }, 800);
-          });
-        }
+        if (!e.data || !e.data.token) return;
+        var token = e.data.token;
+        status.textContent = "Saving authorization...";
+        status.className = "status";
+        t.set("member", "private", "token", token).then(function () {
+          status.textContent = "✓ Authorized! Closing...";
+          status.className = "status success";
+          setTimeout(function () {
+            t.closePopup();
+          }, 800);
+        });
       });
 
       authBtn.addEventListener("click", function () {
         authBtn.disabled = true;
         authBtn.textContent = "Opening Trello...";
-        status.textContent =
-          "Complete authorization in the new tab, then return here.";
+        status.textContent = "Complete the authorization in the new tab.";
         status.className = "status";
 
-        var returnUrl = window.location.origin + "/token-handler.html";
+        var returnUrl =
+          "https://snooze-card-trello.vercel.app/token-handler.html";
         var authUrl =
           "https://trello.com/1/authorize" +
           "?expiration=never" +
@@ -125,20 +129,7 @@
           encodeURIComponent(returnUrl) +
           "&callback_method=postMessage";
 
-        var authWindow = window.open(
-          authUrl,
-          "trello_auth",
-          "width=500,height=600",
-        );
-
-        // If popup was blocked, fallback to redirect
-        if (!authWindow) {
-          status.textContent =
-            "Popup blocked — please allow popups and try again.";
-          status.className = "status error";
-          authBtn.disabled = false;
-          authBtn.textContent = "Connect to Trello";
-        }
+        window.open(authUrl, "_blank", "width=520,height=620");
       });
 
       t.render(function () {

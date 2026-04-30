@@ -4,44 +4,80 @@
     <meta charset="UTF-8" />
     <title>Authorizing...</title>
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #1e1f26;
+        color: #e2e4ea;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
         height: 100vh;
-        margin: 0;
-        background: #1e1f26;
-        color: #e2e4ea;
+        gap: 12px;
         font-size: 15px;
+      }
+      .icon {
+        font-size: 36px;
+      }
+      p {
+        color: #9ca3af;
+        font-size: 13px;
       }
     </style>
   </head>
   <body>
-    <div id="msg">Authorizing, please wait...</div>
+    <div class="icon" id="icon">⏳</div>
+    <div id="msg">Completing authorization...</div>
+    <p id="sub"></p>
+
     <script>
-      // Trello posts the token into the URL hash: #token=xxxxx
-      var hash = window.location.hash;
-      var token = null;
+      // Trello posts the token via postMessage to this page's opener (authorize.html)
+      // when callback_method=postMessage is used.
+      // But it can ALSO land here via return_url with #token= in the hash.
+      // We handle both cases.
 
-      if (hash && hash.indexOf("token=") !== -1) {
-        token = hash.split("token=")[1].split("&")[0];
-      }
+      function handleToken(token) {
+        document.getElementById("icon").textContent = "✓";
+        document.getElementById("msg").textContent = "Authorized successfully!";
+        document.getElementById("sub").textContent = "You can close this tab.";
 
-      if (token) {
-        document.getElementById("msg").textContent =
-          "✓ Authorized! You can close this tab.";
-        // Post token back to the authorize.html popup (the opener)
+        // Post back to authorize.html which opened this window
         if (window.opener) {
           window.opener.postMessage({ token: token }, "*");
-          setTimeout(function () {
-            window.close();
-          }, 1000);
         }
-      } else {
-        document.getElementById("msg").textContent =
-          "Authorization failed. Please close this tab and try again.";
+
+        setTimeout(function () {
+          window.close();
+        }, 1500);
       }
+
+      // Case 1: Token in URL hash (#token=xxxx) from return_url redirect
+      var hash = window.location.hash;
+      if (hash && hash.indexOf("token=") !== -1) {
+        var token = hash.split("token=")[1].split("&")[0];
+        if (token) {
+          handleToken(token);
+        } else {
+          document.getElementById("icon").textContent = "✗";
+          document.getElementById("msg").textContent = "Authorization failed.";
+          document.getElementById("sub").textContent =
+            "Close this tab and try again.";
+        }
+      }
+
+      // Case 2: Trello posts the token via postMessage directly to this page
+      window.addEventListener("message", function (e) {
+        var data = e.data;
+        // Trello sends token as a plain string via postMessage
+        if (data && typeof data === "string" && data.length > 10) {
+          handleToken(data);
+        }
+      });
     </script>
   </body>
 </html>
