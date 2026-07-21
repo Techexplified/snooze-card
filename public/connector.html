@@ -223,19 +223,62 @@
           return t
             .get("card", "shared", "paused", false)
             .then(function (paused) {
-              if (!paused) return [];
-              return t
-                .get("card", "shared", "pauseUntil")
-                .then(function (pauseUntil) {
-                  return [
-                    {
-                      icon: ICON,
-                      title: "Card Paused Until",
-                      text: pauseUntil ? formatDate(pauseUntil) : "Paused",
-                      color: "blue",
-                    },
-                  ];
-                });
+              if (paused) {
+                return t
+                  .get("card", "shared", "pauseUntil")
+                  .then(function (pauseUntil) {
+                    return [
+                      {
+                        icon: ICON,
+                        title: "Card Paused Until",
+                        text: pauseUntil ? formatDate(pauseUntil) : "Paused",
+                        color: "blue",
+                      },
+                      {
+                        icon: ICON,
+                        title: "Resume Card",
+                        text: "▶ Resume Card",
+                        color: "green",
+                        callback: function (t) {
+                          return getToken(t).then(function (token) {
+                            if (!token)
+                              throw new Error("Authorization required");
+                            return t
+                              .card("id")
+                              .then(function (card) {
+                                return archiveCard(card.id, false, token);
+                              })
+                              .then(function () {
+                                return t.set("card", "shared", {
+                                  paused: false,
+                                  pauseUntil: null,
+                                  pausedAt: null,
+                                });
+                              })
+                              .then(function () {
+                                return t.closePopup();
+                              });
+                          });
+                        },
+                      },
+                    ];
+                  });
+              }
+
+              return [
+                {
+                  icon: ICON,
+                  title: "Pause Card",
+                  text: "⏸ Pause Card",
+                  color: "blue",
+                  callback: function (t) {
+                    return t.popup({
+                      title: "Pause Until",
+                      items: getPauseItems(t),
+                    });
+                  },
+                },
+              ];
             });
         },
       });
