@@ -184,43 +184,32 @@
             }
 
             fetch(
-              `https://api.trello.com/1/boards/${boardId}/cards/closed?pluginData=true&key=${APP_KEY}&token=${token}`,
+              `https://api.trello.com/1/boards/${boardId}/cards/closed?key=${APP_KEY}&token=${token}`,
             )
               .then((res) => res.json())
               .then((cards) => {
                 listContainer.innerHTML = "";
-                var pausedCardsFound = 0;
+
+                if (!cards || cards.length === 0) {
+                  listContainer.innerHTML =
+                    '<div class="empty-msg">No paused cards found on this board.</div>';
+                  return;
+                }
 
                 cards.forEach(function (card) {
-                  var isPaused = false;
-                  var pausedAt = null;
-
-                  if (card.pluginData && card.pluginData.length > 0) {
-                    card.pluginData.forEach(function (data) {
-                      try {
-                        var parsed = JSON.parse(data.value);
-                        if (parsed && parsed.paused) {
-                          isPaused = true;
-                          pausedAt = parsed.pausedAt;
-                        }
-                      } catch (e) {}
-                    });
-                  }
-
-                  if (isPaused) {
-                    pausedCardsFound++;
-                    var itemDiv = document.createElement("div");
-                    itemDiv.className = "paused-item";
-                    itemDiv.innerHTML = `
-                  <div class="paused-info">
-                    <h3>${card.name}</h3>
-                    <div class="paused-meta">${timeAgo(pausedAt)}</div>
-                  </div>
-                  <button class="unpause-btn" data-id="${card.id}">UN-PAUSE</button>
-                `;
-                    listContainer.appendChild(itemDiv);
-                  }
+                  var itemDiv = document.createElement("div");
+                  itemDiv.className = "paused-item";
+                  itemDiv.innerHTML = `
+        <div class="paused-info">
+          <h3>${card.name}</h3>
+          <div class="paused-meta">Stored in Archived Items</div>
+        </div>
+        <button class="unpause-btn" data-id="${card.id}">UN-PAUSE</button>
+      `;
+                  listContainer.appendChild(itemDiv);
                 });
+
+                // ... Keep the exact same click event bindings below this line ...
 
                 if (pausedCardsFound === 0) {
                   listContainer.innerHTML =
