@@ -67,7 +67,7 @@
         gap: 10px;
       }
       .paused-item {
-        background: #2d2f3a; /* Dark background matching the notice card above */
+        background: #2d2f3a;
         color: white;
         border-radius: 12px;
         padding: 16px;
@@ -78,16 +78,16 @@
       }
       .paused-info h3 {
         font-size: 15px;
-        color: #579dff; /* Brighter blue for text readability on dark theme */
+        color: #579dff;
         font-weight: 600;
         margin-bottom: 4px;
       }
       .paused-meta {
         font-size: 12px;
-        color: #9ca3af; /* Muted gray for timestamp */
+        color: #9ca3af;
       }
       .unpause-btn {
-        background: #579dff; /* Button matching the theme's core interactive actions */
+        background: #579dff;
         color: white;
         border: none;
         border-radius: 20px;
@@ -140,8 +140,9 @@
       var t = TrelloPowerUp.iframe();
       var APP_KEY = "add761039ac8e9e90f29945c53c99805"; // Your Trello API key[cite: 3]
 
+      // Formats the duration relative to the card's archive activity timestamp
       function timeAgo(isoString) {
-        if (!isoString) return "(Paused)";
+        if (!isoString) return "(Archived)";
         var docDate = new Date(isoString);
         var now = new Date();
         var diffMs = now - docDate;
@@ -183,6 +184,7 @@
               return;
             }
 
+            // Fetch all closed cards directly
             fetch(
               `https://api.trello.com/1/boards/${boardId}/cards/closed?key=${APP_KEY}&token=${token}`,
             )
@@ -193,27 +195,25 @@
                 if (!cards || cards.length === 0) {
                   listContainer.innerHTML =
                     '<div class="empty-msg">No paused cards found on this board.</div>';
+                  t.sizeTo(document.body);
                   return;
                 }
 
                 cards.forEach(function (card) {
                   var itemDiv = document.createElement("div");
                   itemDiv.className = "paused-item";
+                  // We pass card.dateLastActivity to trace back to when it was archived
                   itemDiv.innerHTML = `
-                    <div class="paused-info">
-                      <h3>${card.name}</h3>
-                      <div class="paused-meta">${timeAgo(pausedAt)}</div>
-                    </div>
-                    <button class="unpause-btn" data-id="${card.id}">UN-PAUSE</button>
-                  `;
+                <div class="paused-info">
+                  <h3>${card.name}</h3>
+                  <div class="paused-meta">${timeAgo(card.dateLastActivity)}</div>
+                </div>
+                <button class="unpause-btn" data-id="${card.id}">UN-PAUSE</button>
+              `;
                   listContainer.appendChild(itemDiv);
                 });
 
-                if (pausedCardsFound === 0) {
-                  listContainer.innerHTML =
-                    '<div class="empty-msg">No paused cards found on this board.</div>';
-                }
-
+                // Rebind the action triggers to handle restoring lists cleanly via our backend
                 var buttons = listContainer.querySelectorAll(".unpause-btn");
                 buttons.forEach(function (btn) {
                   btn.onclick = function (e) {
