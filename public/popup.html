@@ -52,7 +52,7 @@
         text-align: center;
       }
 
-      /* Paused Cards List Styling */
+      /* Dark Theme Paused Cards List Styling */
       .section-title {
         font-size: 12px;
         font-weight: 700;
@@ -67,38 +67,43 @@
         gap: 10px;
       }
       .paused-item {
-        background: white;
-        color: #1e1f26;
+        background: #2d2f3a; /* Dark background matching the notice card above */
+        color: white;
         border-radius: 12px;
         padding: 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
       }
       .paused-info h3 {
         font-size: 15px;
-        color: #0c66e4;
+        color: #579dff; /* Brighter blue for text readability on dark theme */
         font-weight: 600;
         margin-bottom: 4px;
       }
       .paused-meta {
         font-size: 12px;
-        color: #7a8290;
+        color: #9ca3af; /* Muted gray for timestamp */
       }
       .unpause-btn {
-        background: #0c66e4;
+        background: #579dff; /* Button matching the theme's core interactive actions */
         color: white;
         border: none;
         border-radius: 20px;
         padding: 8px 16px;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
         transition: background 0.15s;
       }
       .unpause-btn:hover {
-        background: #0055cc;
+        background: #4a8fe0;
+      }
+      .unpause-btn:disabled {
+        background: #3d4050;
+        color: #6b7280;
+        cursor: not-allowed;
       }
       .empty-msg {
         font-size: 13px;
@@ -133,7 +138,7 @@
 
     <script>
       var t = TrelloPowerUp.iframe();
-      var APP_KEY = "add761039ac8e9e90f29945c53c99805"; // Your Trello API key
+      var APP_KEY = "add761039ac8e9e90f29945c53c99805"; // Your Trello API key[cite: 3]
 
       function timeAgo(isoString) {
         if (!isoString) return "(Paused)";
@@ -178,8 +183,6 @@
               return;
             }
 
-            // We fetch closed cards AND request their pluginData directly in one clean API request.
-            // This avoids calling t.get(cardId) on hidden/archived elements entirely!
             fetch(
               `https://api.trello.com/1/boards/${boardId}/cards/closed?pluginData=true&key=${APP_KEY}&token=${token}`,
             )
@@ -192,7 +195,6 @@
                   var isPaused = false;
                   var pausedAt = null;
 
-                  // Parse out the plugin data array included directly in the Trello API response
                   if (card.pluginData && card.pluginData.length > 0) {
                     card.pluginData.forEach(function (data) {
                       try {
@@ -225,7 +227,6 @@
                     '<div class="empty-msg">No paused cards found on this board.</div>';
                 }
 
-                // Setup button click events
                 var buttons = listContainer.querySelectorAll(".unpause-btn");
                 buttons.forEach(function (btn) {
                   btn.onclick = function (e) {
@@ -233,7 +234,6 @@
                     e.target.disabled = true;
                     e.target.textContent = "Resuming...";
 
-                    // Update backend to unarchive
                     fetch("https://snooze-card-trello.vercel.app/api/card", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -244,7 +244,6 @@
                       }),
                     })
                       .then(function () {
-                        // Clear the metadata locally on the card string
                         return t.set(targetCardId, "shared", {
                           paused: false,
                           pauseUntil: null,
