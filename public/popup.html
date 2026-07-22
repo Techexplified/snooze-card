@@ -73,6 +73,74 @@
       button.resume:hover {
         background: #15803d;
       }
+
+      /* Paused cards list */
+      .paused-section {
+        margin-top: 16px;
+      }
+      .paused-section h3 {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #8c96a8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 8px;
+        padding: 0 2px;
+      }
+      .paused-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .paused-item {
+        background: #2d2f3a;
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .paused-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .paused-item-name {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .paused-item-time {
+        font-size: 0.6875rem;
+        color: #8c96a8;
+      }
+      .unpause-btn {
+        width: auto;
+        flex-shrink: 0;
+        padding: 6px 12px;
+        font-size: 0.75rem;
+        background: #16a34a;
+      }
+      .unpause-btn:hover {
+        background: #15803d;
+      }
+      .unpause-btn:disabled {
+        background: #3d4050;
+        color: #6b7280;
+        cursor: not-allowed;
+      }
+      .paused-empty,
+      .paused-loading {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-align: center;
+        padding: 8px 0;
+      }
     </style>
   </head>
   <body>
@@ -92,8 +160,156 @@
       <button id="btn" style="display: none"></button>
     </div>
 
+    <div class="paused-section" id="pausedSection" style="display: none">
+      <h3>Paused Cards</h3>
+      <div id="pausedList" class="paused-list">
+        <div class="paused-loading">Loading paused cards...</div>
+      </div>
+    </div>
+
     <script>
       var t = TrelloPowerUp.iframe();
+      var APP_KEY = "add761039ac8e9e90f29945c53c99805";
+
+      // Same "get member token, prompting OAuth if missing" helper used in connector.html
+      function getToken(t) {
+        return t.get("member", "private", "token").then(function (token) {
+          if (token) return token;
+          return t
+            .popup({
+              title: "Authorize Pause Card",
+              url: t.signUrl("./authorize.html"),
+              height: 200,
+            })
+            .then(function () {
+              return t.get("member", "private", "token");
+            });
+        });
+      }
+
+      function timeAgo(isoString) {
+        if (!isoString) return "";
+        var seconds = Math.floor((Date.now() - new Date(isoString)) / 1000);
+        if (seconds < 60) return "just now";
+        var minutes = Math.floor(seconds / 60);
+        if (minutes < 60)
+          return minutes + " minute" + (minutes === 1 ? "" : "s") + " ago";
+        var hours = Math.floor(minutes / 60);
+        if (hours < 24)
+          return hours + " hour" + (hours === 1 ? "" : "s") + " ago";
+        var days = Math.floor(hours / 24);
+        return days + " day" + (days === 1 ? "" : "s") + " ago";
+      }
+
+      function renderPausedList(cards) {
+        var listEl = document.getElementById("pausedList");
+        listEl.innerHTML = "";
+
+        if (!cards.length) {
+          listEl.innerHTML =
+            '<div class="paused-empty">No cards are currently paused.</div>';
+          return;
+        }
+
+        cards.forEach(function (card) {
+          var item = document.createElement("div");
+          item.className = "paused-item";
+
+          var info = document.createElement("div");
+          info.className = "paused-item-info";
+
+          var name = document.createElement("div");
+          name.className = "paused-item-name";
+          name.textContent = card.name;
+          info.appendChild(name);
+
+          var time = document.createElement("div");
+          time.className = "paused-item-time";
+          time.textContent = card.pausedAt
+            ? "Paused " + timeAgo(card.pausedAt)
+            : "Paused";
+          info.appendChild(time);
+
+          var unBtn = document.createElement("button");
+          unBtn.className = "unpause-btn";
+          unBtn.textContent = "Un-pause";
+          unBtn.onclick = function () {
+            unBtn.disabled = true;
+            unBtn.textContent = "Un-pausing...";
+            unpauseCard(card.id)
+              .then(function () {
+                item.remove();
+                var remaining = document.querySelectorAll(".paused-item");
+                if (!remaining.length) {
+                  renderPausedList([]);
+                }
+              })
+              .catch(function () {
+                unBtn.disabled = false;
+                unBtn.textContent = "Un-pause";
+              });
+          };
+
+          item.appendChild(info);
+          item.appendChild(unBtn);
+          listEl.appendChild(item);
+        });
+      }
+
+      function unpauseCard(cardId) {
+        return getToken(t).then(function (token) {
+          if (!token) throw new Error("Authorization required");
+          return fetch("https://snooze-card-trello.vercel.app/api/card", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cardId: cardId,
+              closed: false,
+              token: token,
+            }),
+          })
+            .then(function (res) {
+              if (!res.ok) throw new Error("Failed to restore card");
+              return res.json();
+            })
+            .then(function () {
+              // Clear this card's shared plugin data even though it's not
+              // the card currently in context — supported by t.set(id, ...).
+              return t.set(cardId, "shared", {
+                paused: false,
+                pauseUntil: null,
+                pausedAt: null,
+              });
+            });
+        });
+      }
+
+      function loadPausedCards() {
+        return Promise.all([t.board("id"), getToken(t)])
+          .then(function (results) {
+            var board = results[0];
+            var token = results[1];
+            if (!token) throw new Error("Authorization required");
+            return fetch(
+              "https://snooze-card-trello.vercel.app/api/paused-cards" +
+                "?boardId=" +
+                board.id +
+                "&token=" +
+                encodeURIComponent(token),
+            );
+          })
+          .then(function (res) {
+            if (!res.ok) throw new Error("Failed to load paused cards");
+            return res.json();
+          })
+          .then(function (data) {
+            renderPausedList(data.cards || []);
+          })
+          .catch(function () {
+            document.getElementById("pausedList").innerHTML =
+              '<div class="paused-empty">Couldn\'t load paused cards.</div>';
+          });
+      }
 
       t.render(function () {
         var btn = document.getElementById("btn");
@@ -101,12 +317,17 @@
         var title = document.getElementById("title");
         var iconWrap = document.getElementById("iconWrap");
         var iconImg = document.getElementById("iconImg");
+        var pausedSection = document.getElementById("pausedSection");
 
         t.context().then(function (ctx) {
           if (!ctx.card) {
             msg.innerHTML =
               "Open a card and use the <strong>Pause Card</strong> button inside the card to pause it.";
             btn.style.display = "none";
+
+            // Board-button context (no card open) — show the paused cards list.
+            pausedSection.style.display = "block";
+            loadPausedCards();
             return;
           }
 
