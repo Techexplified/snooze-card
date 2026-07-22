@@ -84,7 +84,7 @@
       }
       .paused-meta {
         font-size: 12px;
-        color: #579dff;
+        color: #7a8290;
       }
       .unpause-btn {
         background: #0c66e4;
@@ -135,21 +135,20 @@
       var t = TrelloPowerUp.iframe();
       var APP_KEY = "add761039ac8e9e90f29945c53c99805"; // Your Trello API key
 
-      // Formatter helpers
       function timeAgo(isoString) {
-        if (!isoString) return "";
+        if (!isoString) return "(Paused)";
         var docDate = new Date(isoString);
         var now = new Date();
         var diffMs = now - docDate;
         var diffMins = Math.round(diffMs / 60000);
         var diffHours = Math.round(diffMins / 60);
 
-        if (diffMins < 60) return "(Paused " + diffMins + " minutes ago)";
+        if (diffMins < 60)
+          return "(Paused " + (diffMins <= 0 ? 1 : diffMins) + " minutes ago)";
         if (diffHours < 24) return "(Paused " + diffHours + " hours ago)";
         return "(Paused " + Math.round(diffHours / 24) + " days ago)";
       }
 
-      // Helper to request token if missing
       function getToken(t) {
         return t.get("member", "private", "token").then(function (token) {
           if (token) return token;
@@ -165,7 +164,6 @@
         });
       }
 
-      // Render loop
       t.render(function () {
         var listContainer = document.getElementById("pausedList");
 
@@ -180,30 +178,35 @@
               return;
             }
 
-            // Fetch closed (archived) cards on the current board
+            // We fetch closed cards AND request their pluginData directly in one clean API request.
+            // This avoids calling t.get(cardId) on hidden/archived elements entirely!
             fetch(
-              `https://api.trello.com/1/boards/${boardId}/cards/closed?key=${APP_KEY}&token=${token}`,
+              `https://api.trello.com/1/boards/${boardId}/cards/closed?pluginData=true&key=${APP_KEY}&token=${token}`,
             )
               .then((res) => res.json())
-              .then(async (cards) => {
-                listContainer.innerHTML = ""; // Clear loader
-
+              .then((cards) => {
+                listContainer.innerHTML = "";
                 var pausedCardsFound = 0;
 
-                // Iterate over closed cards and check shared plugin data
-                for (var card of cards) {
-                  // Retrieve the plugin data specifically for this card item
-                  var isPaused = await t.get(
-                    card.id,
-                    "shared",
-                    "paused",
-                    false,
-                  );
+                cards.forEach(function (card) {
+                  var isPaused = false;
+                  var pausedAt = null;
+
+                  // Parse out the plugin data array included directly in the Trello API response
+                  if (card.pluginData && card.pluginData.length > 0) {
+                    card.pluginData.forEach(function (data) {
+                      try {
+                        var parsed = JSON.parse(data.value);
+                        if (parsed && parsed.paused) {
+                          isPaused = true;
+                          pausedAt = parsed.pausedAt;
+                        }
+                      } catch (e) {}
+                    });
+                  }
 
                   if (isPaused) {
                     pausedCardsFound++;
-                    var pausedAt = await t.get(card.id, "shared", "pausedAt");
-
                     var itemDiv = document.createElement("div");
                     itemDiv.className = "paused-item";
                     itemDiv.innerHTML = `
@@ -215,14 +218,14 @@
                 `;
                     listContainer.appendChild(itemDiv);
                   }
-                }
+                });
 
                 if (pausedCardsFound === 0) {
                   listContainer.innerHTML =
                     '<div class="empty-msg">No paused cards found on this board.</div>';
                 }
 
-                // Bind click actions to the dynamically generated unpause buttons
+                // Setup button click events
                 var buttons = listContainer.querySelectorAll(".unpause-btn");
                 buttons.forEach(function (btn) {
                   btn.onclick = function (e) {
@@ -230,7 +233,7 @@
                     e.target.disabled = true;
                     e.target.textContent = "Resuming...";
 
-                    // 1. Tell the backend to un-archive the card (closed=false)
+                    // Update backend to unarchive
                     fetch("https://snooze-card-trello.vercel.app/api/card", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -241,7 +244,7 @@
                       }),
                     })
                       .then(function () {
-                        // 2. Clear plugin state metadata for this card
+                        // Clear the metadata locally on the card string
                         return t.set(targetCardId, "shared", {
                           paused: false,
                           pauseUntil: null,
@@ -249,7 +252,6 @@
                         });
                       })
                       .then(function () {
-                        // 3. Close the popup to complete transaction UI refresh
                         t.closePopup();
                       })
                       .catch(function (err) {
@@ -260,11 +262,10 @@
                   };
                 });
 
-                // Adjust popup window dynamically depending on content size
                 t.sizeTo(document.body);
               });
           })
-          .catch(function () {
+          .catch(function (err) {
             listContainer.innerHTML =
               '<div class="empty-msg">Error loading board items.</div>';
           });
