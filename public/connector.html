@@ -61,27 +61,6 @@
         });
       }
 
-      function pauseCard(t, pauseUntil) {
-        return getToken(t).then(function (token) {
-          if (!token) throw new Error("Authorization required");
-          return t
-            .set("card", "shared", {
-              paused: true,
-              pauseUntil: pauseUntil,
-              pausedAt: new Date().toISOString(),
-            })
-            .then(function () {
-              return t.card("id");
-            })
-            .then(function (card) {
-              return archiveCard(card.id, true, token);
-            })
-            .then(function () {
-              return t.closePopup();
-            });
-        });
-      }
-
       function getPauseItems(t) {
         var now = new Date();
 
@@ -129,7 +108,12 @@
           items.push({
             text: opt.text,
             callback: function (t) {
-              return pauseCard(t, opt.date.toISOString());
+              return t.popup({
+                title: "Pause Card",
+                url: t.signUrl("./reason.html"),
+                height: 260,
+                args: { pauseUntil: opt.date.toISOString() },
+              });
             },
           });
         });

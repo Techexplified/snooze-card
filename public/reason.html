@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reason for Pausing</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1e1f26;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #e2e4ea;
+        padding: 16px;
+        font-size: 14px;
+      }
+      .pause-until {
+        font-size: 12px;
+        color: #8c96a8;
+        margin-bottom: 14px;
+      }
+      .pause-until strong {
+        color: #e2e4ea;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: #8c96a8;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 6px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 90px;
+        background: #2d2f3a;
+        border: 1px solid #3d4050;
+        border-radius: 8px;
+        color: #e2e4ea;
+        font-size: 14px;
+        font-family: inherit;
+        padding: 10px;
+        resize: vertical;
+        outline: none;
+        transition: border-color 0.15s;
+        margin-bottom: 16px;
+      }
+      textarea:focus {
+        border-color: #579dff;
+      }
+      button.pause-btn {
+        width: 100%;
+        padding: 10px;
+        background: #579dff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      button.pause-btn:hover {
+        background: #4a8fe0;
+      }
+      button.pause-btn:disabled {
+        background: #3d4050;
+        color: #6b7280;
+        cursor: not-allowed;
+      }
+      .status {
+        font-size: 12px;
+        color: #9ca3af;
+        text-align: center;
+        margin-top: 10px;
+        min-height: 16px;
+      }
+      .status.error {
+        color: #ef4444;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pause-until" id="pauseUntilLabel">
+      Pausing until: <strong id="pauseUntilText">…</strong>
+    </div>
+
+    <label for="reasonInput">Reason for pausing (optional)</label>
+    <textarea
+      id="reasonInput"
+      placeholder="e.g. Waiting on client feedback"
+    ></textarea>
+
+    <button class="pause-btn" id="pauseBtn">Pause</button>
+    <div class="status" id="status"></div>
+
+    <script>
+      var t = TrelloPowerUp.iframe();
+      var pauseUntil = t.arg("pauseUntil", null);
+
+      function formatDate(isoString) {
+        if (!isoString) return "Unknown";
+        var d = new Date(isoString);
+        return d.toLocaleString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+
+      document.getElementById("pauseUntilText").textContent =
+        formatDate(pauseUntil);
+
+      // Same auth pattern used elsewhere in this Power-Up
+      function getToken(t) {
+        return t.get("member", "private", "token").then(function (token) {
+          if (token) return token;
+          return t
+            .popup({
+              title: "Authorize Pause Card",
+              url: t.signUrl("./authorize.html"),
+              height: 200,
+            })
+            .then(function () {
+              return t.get("member", "private", "token");
+            });
+        });
+      }
+
+      function archiveCard(cardId, closed, token) {
+        return fetch("https://snooze-card-trello.vercel.app/api/card", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cardId: cardId,
+            closed: closed,
+            token: token,
+          }),
+        }).then(function (res) {
+          return res.json().then(function (data) {
+            if (!res.ok) throw new Error(data.error || "Trello API error");
+            return data;
+          });
+        });
+      }
+
+      var pauseBtn = document.getElementById("pauseBtn");
+      var status = document.getElementById("status");
+
+      pauseBtn.addEventListener("click", function () {
+        if (!pauseUntil) {
+          status.textContent =
+            "Missing pause date — please go back and pick a time.";
+          status.className = "status error";
+          return;
+        }
+
+        pauseBtn.disabled = true;
+        pauseBtn.textContent = "Pausing...";
+        status.textContent = "";
+        status.className = "status";
+
+        var reason = document.getElementById("reasonInput").value.trim();
+
+        t.set("card", "shared", {
+          paused: true,
+          pauseUntil: pauseUntil,
+          pausedAt: new Date().toISOString(),
+          reason: reason,
+        })
+          .then(function () {
+            return Promise.all([t.card("id"), getToken(t)]);
+          })
+          .then(function (results) {
+            var card = results[0];
+            var token = results[1];
+            if (!token) throw new Error("Authorization required");
+            return archiveCard(card.id, true, token);
+          })
+          .then(function () {
+            return t.closePopup();
+          })
+          .catch(function (err) {
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = "Pause";
+            status.textContent = err.message || "Failed to pause card.";
+            status.className = "status error";
+          });
+      });
+
+      t.render(function () {
+        t.sizeTo(document.body);
+      });
+    </script>
+  </body>
+</html>

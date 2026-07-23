@@ -382,30 +382,12 @@
             return;
           }
 
-          t.set("card", "shared", {
-            paused: true,
-            pauseUntil: pauseUntil.toISOString(),
-            pausedAt: new Date().toISOString(),
-          })
-            .then(function () {
-              return Promise.all([t.card("id"), t.getRestApi().getToken()]);
-            })
-            .then(function (results) {
-              var card = results[0];
-              var token = results[1];
-              return fetch("https://snooze-card-trello.vercel.app/api/card", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  cardId: card.id,
-                  closed: true,
-                  token: token,
-                }),
-              });
-            })
-            .then(function () {
-              t.closePopup();
-            });
+          t.popup({
+            title: "Pause Card",
+            url: t.signUrl("./reason.html"),
+            height: 260,
+            args: { pauseUntil: pauseUntil.toISOString() },
+          });
         });
 
       // Default to tomorrow at 12:00 PM

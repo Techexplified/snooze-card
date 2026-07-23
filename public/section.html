@@ -36,13 +36,25 @@
   <body>
     <div class="label">Card Paused Until</div>
     <div class="date-badge" id="date">Loading...</div>
+
+    <div class="label" id="reasonLabel" style="margin-top: 10px; display: none">
+      Reason
+    </div>
+    <div class="date-badge" id="reason" style="display: none"></div>
     <script>
       var t = TrelloPowerUp.iframe();
-      t.get("card", "shared", "pauseUntil").then(function (pauseUntil) {
-        var el = document.getElementById("date");
+
+      Promise.all([
+        t.get("card", "shared", "pauseUntil"),
+        t.get("card", "shared", "reason"),
+      ]).then(function (results) {
+        var pauseUntil = results[0];
+        var reason = results[1];
+
+        var dateEl = document.getElementById("date");
         if (pauseUntil) {
           var d = new Date(pauseUntil);
-          el.textContent = d.toLocaleString("en-US", {
+          dateEl.textContent = d.toLocaleString("en-US", {
             month: "long",
             day: "numeric",
             year: "numeric",
@@ -51,8 +63,16 @@
             hour12: true,
           });
         } else {
-          el.textContent = "Unknown";
+          dateEl.textContent = "Unknown";
         }
+
+        if (reason) {
+          document.getElementById("reasonLabel").style.display = "block";
+          var reasonEl = document.getElementById("reason");
+          reasonEl.style.display = "inline-block";
+          reasonEl.textContent = reason;
+        }
+
         t.sizeTo(document.body);
       });
     </script>
